@@ -1,7 +1,13 @@
 {
   "$schema": "../gen/schemas/desktop-schema.json",
   "identifier": "default",
-  "description": "Permissões mínimas da janela principal: núcleo do Tauri, eventos e fechar a janela (para devolver o perfil do OBS).",
-  "windows": ["main"],
-  "permissions": ["core:default", "core:window:allow-destroy"]
+  "description": "Permissões mínimas das janelas: núcleo do Tauri, eventos e fechar a janela principal (para devolver o perfil do OBS).",
+  "windows": [
+    "main",
+    "overlay"
+  ],
+  "permissions": [
+    "core:default",
+    "core:window:allow-destroy"
+  ]
 }

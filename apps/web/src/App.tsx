@@ -2,11 +2,13 @@ import { Layout } from "./components/Layout";
 import { Link } from "./components/Link";
 import { matchPath, usePath } from "./lib/router";
 import { Home } from "./pages/Home";
+import { Overlay } from "./pages/Overlay";
 import { Join } from "./pages/Join";
 import { RoomPage } from "./pages/Room";
 
 export function App() {
   const path = usePath();
+  if (path === "/overlay") return <Overlay />;
   const join = matchPath(path, "j");
   const room = matchPath(path, "r");
 

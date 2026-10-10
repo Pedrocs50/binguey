@@ -137,9 +137,10 @@ Consequências já implementadas:
 - **Pós-roll** reduzido de 2 s para 0,5 s e miniatura do meio do clip: o jogador cumpre o objetivo no jogo e
   só depois volta ao app para marcar; o que importa está antes do clique.
 
-Decisão pendente (maior impacto de usabilidade): **marcar sem sair do jogo**. Hoje é preciso dar Alt+Tab
-para clicar na casa. Proposta: mini-tabuleiro sempre-no-topo (segunda janela do app) aberto por atalho global.
-Funciona em janela sem bordas; em tela cheia exclusiva depende do jogo.
+**Marcar sem sair do jogo — feito:** mini-tabuleiro sempre no topo (`Ctrl+Shift+B`), segunda janela do app;
+a marcação vai por evento à janela principal, que grava o clip. Testado: atalho global (simulado), janela abre
+e fecha, marcação pelo evento gera marca e clip em ~2 s. Não testado em jogo de verdade (tela cheia exclusiva
+pode minimizar o jogo).
 
 ## Próximos passos
 

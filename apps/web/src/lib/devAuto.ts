@@ -4,6 +4,7 @@ import { api, ensureSession } from "@binguey/shared";
 import { createRoomAs } from "./actions";
 import { getClipStatus, captureClip } from "./clips";
 import { invoke } from "./desktop";
+import { navigate } from "./router";
 import { obs } from "./obs";
 import { cleanLocalClips, connectObs, getObsState, localClipsInfo, readObsConfig } from "./obsStore";
 import { supabase } from "./supabase";
@@ -69,6 +70,24 @@ export async function maybeRunDevAuto(): Promise<void> {
 
     const dup = await captureOnLostMark(room.id, me);
     report(`E2E.4 ${dup ? "PASS" : "FAIL"}  marcação perdida não gera clip`);
+
+    // Mini-tabuleiro: a janela abre/fecha, e uma marcação vinda dele (evento) vira marca + clip.
+    const shown = await invoke<boolean>("toggle_overlay");
+    const hidden = await invoke<boolean>("toggle_overlay");
+    report(`E2E.10 ${shown && !hidden ? "PASS" : "FAIL"}  janela do mini-tabuleiro: abriu=${shown}, fechou=${!hidden}`);
+    navigate(`/r/${room.code}`);
+    await sleep(2500);
+    const clipsBefore = (await supabase.from("clips").select("id").eq("room_id", room.id)).data?.length ?? 0;
+    const tOverlay = performance.now();
+    await window.__TAURI__!.event.emit("binguey-mark", { idx: 2 });
+    let viaOverlay = false;
+    while (!viaOverlay && performance.now() - tOverlay < 20000) {
+      const marks = (await supabase.from("marks").select("cell_idx").eq("room_id", room.id).eq("cell_idx", 2)).data?.length ?? 0;
+      const clipsNow = (await supabase.from("clips").select("id").eq("room_id", room.id)).data?.length ?? 0;
+      viaOverlay = marks === 1 && clipsNow > clipsBefore;
+      if (!viaOverlay) await sleep(300);
+    }
+    report(`E2E.11 ${viaOverlay ? "PASS" : "FAIL"}  marcação enviada pelo mini-tabuleiro gerou marca e clip em ${Math.round(performance.now() - tOverlay)} ms`);
 
     const setup = await obs.describeSetup();
     const profileOk = /coleção=Binguey/.test(setup) && /fontes=monitor_capture/.test(setup) && /perfil=Binguey/.test(setup) && /x720@/.test(setup) && /bitrate=3000/.test(setup) && /pasta=[^ ]*Binguey /i.test(setup);

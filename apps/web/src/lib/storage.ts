@@ -51,6 +51,10 @@ export function getSettings(): Settings {
 }
 export const setSettings = (s: Settings) => write("binguey:settings", JSON.stringify(s));
 
+/** Sala em que o jogador está agora; o mini-tabuleiro (outra janela) lê daqui. */
+export const getActiveRoom = () => read("binguey:active-room") ?? "";
+export const setActiveRoom = (code: string) => write("binguey:active-room", code);
+
 export interface RecentRoom {
   code: string;
   at: number;

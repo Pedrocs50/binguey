@@ -25,6 +25,13 @@ Primeira compilação: ~3 min. A senha do WebSocket do OBS é digitada no app (f
 - **OBS fechado:** o app o abre sozinho (comando `launch_obs`: instalação padrão, `--startreplaybuffer`,
   sem receber caminho da interface). Se o OBS já está aberto mas o WebSocket não responde, mostra como ativar.
 
+## Marcar sem sair do jogo (mini-tabuleiro)
+
+`Ctrl+Shift+B` (atalho global) abre e fecha uma segunda janela, pequena e sempre no topo, com o tabuleiro da
+sala atual. Clicar numa casa ali envia a marcação à janela principal (evento `binguey-mark`), que é quem fala
+com o OBS e grava o clip. Fechar a janela (X) só a esconde; fechar a janela principal encerra o app.
+Funciona em jogos em janela ou janela sem bordas; em tela cheia exclusiva depende do jogo.
+
 ## Como funciona um clip
 
 1. O jogador toca na casa → `mark_cell` (RPC) e, em paralelo, uma espera de 2 s (pós-roll).

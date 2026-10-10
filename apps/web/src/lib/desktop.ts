@@ -5,7 +5,10 @@ interface TauriGlobal {
   window?: {
     getCurrentWindow: () => { onCloseRequested: (cb: () => void | Promise<void>) => Promise<() => void> };
   };
-  event: { listen: <T>(name: string, cb: (e: { payload: T }) => void) => Promise<() => void> };
+  event: {
+    listen: <T>(name: string, cb: (e: { payload: T }) => void) => Promise<() => void>;
+    emit: (name: string, payload?: unknown) => Promise<void>;
+  };
 }
 
 declare global {

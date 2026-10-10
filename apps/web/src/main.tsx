@@ -10,7 +10,8 @@ import "./styles/global.css";
 import "./styles/app.css";
 import { App } from "./App";
 
-if (window.__TAURI__) {
+// O mini-tabuleiro (/overlay) é outra janela do mesmo app: só a principal cuida de links, OBS e testes.
+if (window.__TAURI__ && !window.location.pathname.startsWith("/overlay")) {
   void import("./lib/deeplink").then((m) => m.setupDeepLinks());
   void import("./lib/lifecycle").then((m) => m.setupLifecycle());
   void import("./lib/devAuto").then((m) => m.maybeRunDevAuto());

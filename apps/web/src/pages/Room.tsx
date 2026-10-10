@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import { api, completedLines, inviteUrl } from "@binguey/shared";
 import { Board } from "../components/Board";
 import { ClipGallery } from "../components/ClipGallery";
@@ -7,19 +7,31 @@ import { ObsPanel } from "../components/ObsPanel";
 import { Relogio } from "../components/Relogio";
 import { useRoom, type RoomData } from "../hooks/useRoom";
 import { captureClip, resumeQueue } from "../lib/clips";
-import { isDesktop } from "../lib/desktop";
+import { invoke, isDesktop } from "../lib/desktop";
 import { getObsState } from "../lib/obsStore";
 import { errorMessage } from "../lib/errors";
 import { navigate } from "../lib/router";
-import { rememberRoom } from "../lib/storage";
+import { rememberRoom, setActiveRoom } from "../lib/storage";
 import { supabase } from "../lib/supabase";
 
 export function RoomPage({ code }: { code: string }) {
   const { phase, data, me, offset, notice, setNotice, markCell, closeTimeout, reload } = useRoom(code);
 
   useEffect(() => {
-    if (phase === "ready") rememberRoom(code);
+    if (phase === "ready") {
+      rememberRoom(code);
+      setActiveRoom(code); // o mini-tabuleiro lê daqui
+    }
   }, [phase, code]);
+
+  // Marcações vindas do mini-tabuleiro: esta janela é quem fala com o OBS, então ela executa.
+  const markFromOverlay = useRef<(idx: number) => void>(() => {});
+  useEffect(() => {
+    if (!isDesktop()) return;
+    let stop: (() => void) | undefined;
+    void window.__TAURI__!.event.listen<{ idx: number }>("binguey-mark", (e) => markFromOverlay.current(e.payload.idx)).then((f) => (stop = f));
+    return () => stop?.();
+  }, []);
 
   useEffect(() => {
     if (isDesktop()) resumeQueue(); // reenvia clips que ficaram pendentes de uma sessão anterior
@@ -52,6 +64,8 @@ export function RoomPage({ code }: { code: string }) {
       void captureClip({ roomId: room.id, userId: me!, mark });
     }
   }
+
+  markFromOverlay.current = handleMark;
 
   return (
     <>
@@ -258,6 +272,15 @@ function Play({
         linhas: {lines}/{room.target_lines} · casas marcadas: {marks.length}/{cells.length}
       </p>
       <Board size={room.size} cells={cells} marks={marks} nicknames={nicknames} canMark onMark={onMark} />
+      {isDesktop() && (
+        <p className="rotulo" style={{ margin: "0.8rem 0 0" }}>
+          Marque sem sair do jogo:{" "}
+          <button type="button" className="link" onClick={() => void invoke("toggle_overlay")}>
+            abrir o mini-tabuleiro
+          </button>{" "}
+          ou aperte Ctrl+Shift+B.
+        </p>
+      )}
       <ObsPanel roomId={room.id} policy={room.clip_policy} compact />
       <ClipGallery clips={clips} cells={cells} marks={marks} nicknames={nicknames} me={me} />
       {room.host_id === me && (

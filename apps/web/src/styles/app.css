@@ -93,3 +93,10 @@ button.link:hover { color: var(--hover); }
 
 .resultado { border: 1px solid var(--linha); padding: 1.1rem 1.2rem; margin-bottom: 1.5rem; background: var(--superficie); }
 .resultado h2 { margin-bottom: 0.3rem; }
+
+/* Mini-tabuleiro (janela sempre no topo) */
+.overlay { padding: 0.8rem; min-height: 100vh; background: var(--fundo); }
+.overlay-topo { display: flex; justify-content: space-between; align-items: baseline; margin-bottom: 0.6rem; }
+.overlay .relogio { font-size: 1.1rem; }
+.overlay .casa { min-height: 4rem; font-size: 0.72rem; padding: 0.4rem; }
+.overlay .casa .tags { display: none; }

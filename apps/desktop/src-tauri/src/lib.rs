@@ -7,6 +7,7 @@ use std::{
 use std::process::{Command, Stdio};
 use tauri::{ipc::Response, AppHandle, Emitter, Manager, State};
 use tauri_plugin_deep_link::DeepLinkExt;
+use tauri_plugin_global_shortcut::{Code, GlobalShortcutExt, Modifiers, Shortcut, ShortcutState};
 
 const MAX_CLIP_BYTES: u64 = 50 * 1024 * 1024; // limite por arquivo do Storage gratuito
 
@@ -172,6 +173,41 @@ fn read_obs_websocket_config() -> Result<ObsWebsocketConfig, String> {
     })
 }
 
+// ---- Mini-tabuleiro (overlay) sempre no topo --------------------------------------------------------
+
+/// Escreve uma linha no arquivo de relatório do teste automático (só debug).
+fn dev_log(line: &str) {
+    if !cfg!(debug_assertions) {
+        return;
+    }
+    if let Ok(out) = std::env::var("BINGUEY_AUTOTEST_OUT") {
+        if let Ok(mut f) = fs::OpenOptions::new().create(true).append(true).open(out) {
+            let _ = writeln!(f, "{line}");
+        }
+    }
+}
+
+/// Mostra ou esconde o mini-tabuleiro. Devolve true se ficou visível.
+fn toggle_overlay_window(app: &AppHandle) -> bool {
+    let Some(w) = app.get_webview_window("overlay") else {
+        return false;
+    };
+    let now_visible = !w.is_visible().unwrap_or(false);
+    if now_visible {
+        let _ = w.show();
+        let _ = w.set_always_on_top(true);
+    } else {
+        let _ = w.hide();
+    }
+    dev_log(&format!("overlay visible={now_visible}"));
+    now_visible
+}
+
+#[tauri::command]
+fn toggle_overlay(app: AppHandle) -> bool {
+    toggle_overlay_window(&app)
+}
+
 // ---- Abrir o OBS --------------------------------------------------------------------------------
 
 #[cfg(windows)]
@@ -292,6 +328,9 @@ fn dev_exit(app: AppHandle) {
 }
 
 pub fn run() {
+    let toggle = Shortcut::new(Some(Modifiers::CONTROL | Modifiers::SHIFT), Code::KeyB);
+    let toggle_for_handler = toggle.clone();
+
     tauri::Builder::default()
         // Deve ser o primeiro plugin: um segundo clique em convite entrega o link à janela já aberta.
         .plugin(tauri_plugin_single_instance::init(|app, _argv, _cwd| {
@@ -301,9 +340,42 @@ pub fn run() {
             }
         }))
         .plugin(tauri_plugin_deep_link::init())
+        .plugin(
+            tauri_plugin_global_shortcut::Builder::new()
+                .with_handler(move |app, shortcut, event| {
+                    if shortcut == &toggle_for_handler && event.state() == ShortcutState::Pressed {
+                        toggle_overlay_window(app);
+                    }
+                })
+                .build(),
+        )
+        // Fechar a janela principal encerra o app, mesmo com o mini-tabuleiro escondido.
+        .on_window_event(|window, event| {
+            if window.label() == "main" && matches!(event, tauri::WindowEvent::Destroyed) {
+                window.app_handle().exit(0);
+            }
+        })
         .manage(RecordDir::default())
         .manage(PendingLink::default())
-        .setup(|app| {
+        .setup(move |app| {
+            // Mini-tabuleiro: começa escondido; Ctrl+Shift+B alterna. Fechar (X) só esconde.
+            if let Ok(overlay) = tauri::WebviewWindowBuilder::new(app, "overlay", tauri::WebviewUrl::App("overlay".into()))
+                .title("Binguey · Ctrl+Shift+B")
+                .inner_size(400.0, 600.0)
+                .always_on_top(true)
+                .skip_taskbar(true)
+                .visible(false)
+                .build()
+            {
+                let handle = overlay.clone();
+                overlay.on_window_event(move |e| {
+                    if let tauri::WindowEvent::CloseRequested { api, .. } = e {
+                        api.prevent_close();
+                        let _ = handle.hide();
+                    }
+                });
+            }
+            let _ = app.global_shortcut().register(toggle.clone());
             // Em desenvolvimento o instalador não existe: registra o esquema binguey:// em tempo de execução.
             #[cfg(debug_assertions)]
             let _ = app.deep_link().register_all();
@@ -326,6 +398,7 @@ pub fn run() {
             delete_clip,
             open_clips_dir,
             launch_obs,
+            toggle_overlay,
             take_pending_link,
             dev_config,
             dev_report,
