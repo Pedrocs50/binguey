@@ -1,0 +1,10 @@
+# Configuração mínima para o Supabase CLI (`supabase init` gera a versão completa).
+# Referência: https://supabase.com/docs/guides/local-development/cli/config
+project_id = "binguey"
+
+[auth]
+enable_anonymous_sign_ins = true
+
+[db.seed]
+enabled = true
+sql_paths = ["./seed.sql"]

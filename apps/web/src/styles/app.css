@@ -1,0 +1,74 @@
+/* Peças do Binguey. Só var(--...) das tokens; cantos retos, sem sombras. */
+
+.cab-int { display: flex; align-items: baseline; justify-content: space-between; gap: 1rem; padding-block: 1.6rem 1.2rem; }
+.marca { font-family: var(--f-titulo); font-weight: 600; font-size: 1.05rem; text-decoration: none; }
+.nav { display: flex; align-items: baseline; gap: 1.2rem; font-family: var(--f-mono); font-size: 0.85rem; }
+.nav a { text-decoration: none; color: var(--texto-suave); }
+.tema { border: 0; background: none; cursor: pointer; font-size: 1rem; padding: 0; color: var(--texto-suave); line-height: 1; }
+.tema:hover { color: var(--hover); }
+
+.rodape { margin-top: 5rem; border-top: 1px solid var(--linha); }
+.rodape-int { display: flex; justify-content: space-between; gap: 1rem; padding-block: 1.4rem 2.5rem; font-family: var(--f-mono); font-size: 0.8rem; color: var(--texto-suave); }
+
+.pagina { padding-block: 1.5rem 0; }
+.intro { font-size: 1.25rem; line-height: 1.5; margin: 0 0 2rem; }
+.secao { margin-top: 2.5rem; }
+.secao > h2 { padding-bottom: 0.5rem; border-bottom: 1px solid var(--linha); margin-bottom: 1.2rem; }
+
+.campo { display: block; margin-bottom: 1rem; }
+.campo > span { display: block; margin-bottom: 0.3rem; }
+.campo input, .campo select, .campo textarea {
+  width: 100%;
+  background: var(--superficie);
+  border: 1px solid var(--linha);
+  border-radius: 0;
+  padding: 0.65rem 0.85rem;
+  font-family: var(--f-mono);
+  font-size: 0.95rem;
+}
+.campo textarea { resize: vertical; min-height: 6rem; }
+.campo input:focus, .campo select:focus, .campo textarea:focus { outline: none; border-color: var(--texto); }
+.campo .dica { display: block; margin-top: 0.3rem; }
+.grade-campos { display: grid; grid-template-columns: repeat(auto-fit, minmax(9rem, 1fr)); gap: 0 1rem; }
+.acoes { display: flex; gap: 0.75rem; align-items: center; flex-wrap: wrap; }
+
+.lista { list-style: none; margin: 0; padding: 0; }
+.lista li { display: flex; justify-content: space-between; align-items: baseline; gap: 1rem; padding: 0.5rem 0; border-bottom: 1px solid var(--linha); font-family: var(--f-mono); font-size: 0.9rem; }
+.lista li:first-child { border-top: 1px solid var(--linha); }
+
+.tag { font-family: var(--f-mono); font-size: 0.82rem; color: var(--texto-suave); text-decoration: none; }
+
+.sala-topo { display: flex; justify-content: space-between; align-items: baseline; gap: 1rem; flex-wrap: wrap; margin-bottom: 1.2rem; }
+.codigo { font-family: var(--f-titulo); font-weight: 600; letter-spacing: 0.12em; }
+.relogio { font-family: var(--f-titulo); font-weight: 600; font-size: 1.6rem; font-variant-numeric: tabular-nums; }
+.relogio.fim { color: var(--erro); }
+.progresso { margin: 0 0 1rem; }
+
+.tabuleiro { display: grid; border-top: 1px solid var(--linha); border-left: 1px solid var(--linha); }
+.casa {
+  display: flex; flex-direction: column; justify-content: space-between; gap: 0.5rem;
+  min-height: 6.5rem; padding: 0.6rem 0.65rem;
+  background: var(--fundo); color: var(--texto);
+  border: 0; border-right: 1px solid var(--linha); border-bottom: 1px solid var(--linha); border-radius: 0;
+  text-align: left; font-family: var(--f-texto); font-size: 0.88rem; line-height: 1.35;
+  cursor: pointer;
+  overflow-wrap: anywhere;
+}
+.casa:hover:not(:disabled) { background: var(--superficie); outline: 1px solid var(--hover); outline-offset: -1px; }
+.casa:disabled { cursor: default; }
+.casa .tags { display: flex; flex-wrap: wrap; gap: 0 0.5rem; font-family: var(--f-mono); font-size: 0.7rem; color: var(--texto-suave); }
+.casa .quem { font-family: var(--f-mono); font-size: 0.72rem; }
+.casa.marcada { background: var(--destaque); color: var(--sobre-destaque); }
+.casa.marcada .tags { color: inherit; opacity: 0.7; }
+.casa.em-linha { outline: 2px solid var(--sobre-destaque); outline-offset: -5px; }
+.casa.pendente { opacity: 0.7; }
+.tabuleiro[data-size='5'] .casa { min-height: 5.5rem; font-size: 0.78rem; padding: 0.45rem; }
+.tabuleiro[data-size='5'] .casa .tags { display: none; }
+
+@media (max-width: 30rem) {
+  .casa { min-height: 5rem; font-size: 0.78rem; }
+  .tabuleiro[data-size='4'] .casa .tags, .tabuleiro[data-size='5'] .casa .tags { display: none; }
+}
+
+.resultado { border: 1px solid var(--linha); padding: 1.1rem 1.2rem; margin-bottom: 1.5rem; background: var(--superficie); }
+.resultado h2 { margin-bottom: 0.3rem; }
