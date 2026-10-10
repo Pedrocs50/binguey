@@ -2,6 +2,7 @@ import { useSyncExternalStore } from "react";
 import { api, BingueyError, type Mark } from "@binguey/shared";
 import { invoke } from "./desktop";
 import { obs } from "./obs";
+import { getSettings } from "./storage";
 import { supabase } from "./supabase";
 
 /** Segundos de "pós-roll": espera depois do clique para o clip incluir a reação. */
@@ -131,6 +132,9 @@ async function upload(item: QueueItem): Promise<void> {
     durationMs,
     thumbPath,
   });
+
+  // Por padrão o arquivo fica no PC do jogador. Só some se ele pediu (e só na pasta dedicada do Binguey).
+  if (getSettings().deleteLocalAfterUpload) await invoke("delete_clip", { path: item.path }).catch(() => {});
 }
 
 /** Processa a fila em série, com reenvio exponencial (2 s, 4 s, 8 s...). */

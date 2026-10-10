@@ -53,15 +53,17 @@ de OBS) está certa. Os pontos abaixo são o que eu corrigiria ou decidiria **an
   10 clips por jogador, 50 MB por arquivo.
 - O nome do objeto no Storage é `{room}/{user}/{mark}.mp4` (o bucket já se chama `clips`).
 
-## Estado atual (o que existe e o que não foi validado)
+## Estado atual (10/10/2026)
 
 | Item | Estado |
 | --- | --- |
-| `packages/shared` (linhas, código de sala, convites, cliente) | testes Vitest rodando |
-| `supabase/migrations` + `seed.sql` | escritos, **não executados** (sem Docker/CLI instalados) |
-| `supabase/tests/rules.test.sql` (pgTAP) | escrito, **não executado** |
-| `apps/web` | só um placeholder que importa o pacote compartilhado |
-| `apps/desktop` | não iniciado (sem Rust instalado) |
+| `packages/shared` (linhas, código de sala, convites, cliente) | 9 testes Vitest passando |
+| `supabase/migrations` 0001–0006 + `seed.sql` | aplicados no projeto dev; 27 verificações em `pnpm --filter @binguey/shared smoke` passando |
+| `supabase/tests/rules.test.sql` (pgTAP) | escrito, **não executado** (sem Docker/CLI do Supabase) |
+| `apps/web` | jogo completo: entrar por link, lobby, tabuleiro em tempo real, timer, vitória, encerrar partida, galeria de clips |
+| `apps/desktop` | app Tauri: OBS (abre sozinho, senha lida da config, perfil dedicado), envio de clips, deep link |
+| Teste ponta a ponta no app com OBS real (`apps/desktop/README.md`) | 8 verificações passando (clip visível em ~3,6 s) |
+| Não feito | vídeo final, limpeza automática no servidor, instalador/atualização/assinatura, publicação, estatísticas, testes com jogo real e com vários jogadores |
 
 ## Spikes
 
@@ -78,6 +80,8 @@ Notas do S2:
 - A senha do OBS só chega ao app por variável de ambiente em build de debug (`spike_config`); em release
   o assistente pede a senha ao usuário e a guarda localmente.
 - O CSP do app **não** precisou de `unsafe-eval` nem de domínios externos para falar com o OBS.
+
+| **S1b** — perfil dedicado do OBS por WebSocket | **Passou** (10/10/2026): cria o perfil "Binguey" (saída 720p mantendo a proporção da tela, 30 fps, 3 Mbps, buffer de 20 s, pasta `Vídeos\Binguey`), reaproveita o encoder do perfil do jogador, recarrega o perfil para o OBS criar a saída do Replay Buffer e **devolve o perfil original** ao desativar, ao fechar o app e se algo falhar. Replays ficam guardados por padrão; "apagar depois de enviar" e "limpar agora" são opções do jogador e só atuam na pasta chamada `Binguey`. |
 
 Pendências do S1:
 - Senha/porta do OBS: **resolvido**. O OBS guarda `server_enabled`, `server_port`, `server_password` e

@@ -15,9 +15,11 @@ export interface ObsState {
   testMb: number | null;
   /** Aviso (não é erro): a cena grava o monitor inteiro em vez de só o jogo. */
   captureWarning: string;
+  /** Aviso (não é erro): o perfil dedicado não pôde ser preparado. */
+  profileNote: string;
 }
 
-let state: ObsState = { phase: "off", message: "", version: "", testMb: null, captureWarning: "" };
+let state: ObsState = { phase: "off", message: "", version: "", testMb: null, captureWarning: "", profileNote: "" };
 const listeners = new Set<() => void>();
 
 function set(next: Partial<ObsState>) {
@@ -103,19 +105,40 @@ export async function connectObs(password: string, opts: { test?: boolean; roomI
     const captureWarning = kinds.includes("monitor_capture")
       ? "A cena do OBS grava o monitor inteiro: notificações, Discord e outras janelas aparecem nos clips. Para jogos, prefira “Captura de Jogo” (Fontes → + → Captura de Jogo)."
       : "";
-    set({ phase: "ready", message: "", version: obs.obsVersion, testMb: testMb ?? state.testMb, captureWarning });
+    set({
+      phase: "ready",
+      message: "",
+      version: obs.obsVersion,
+      testMb: testMb ?? state.testMb,
+      captureWarning,
+      profileNote: obs.profileNote,
+    });
     if (opts.roomId) await announceClips(opts.roomId, true);
   } catch (e) {
+    // Se falhou depois de trocar o perfil, devolve o do jogador: o OBS fica como estava.
+    await obs.restoreProfile().catch(() => {});
     set({ phase: "error", message: describe(e) });
     if (opts.roomId) await announceClips(opts.roomId, false);
   }
 }
 
-export function disconnectObs(roomId?: string) {
-  obs.close();
-  set({ phase: "off", message: "", testMb: null, captureWarning: "" });
+/** Desativa os clips: devolve o perfil do OBS que o jogador usava e desconecta. */
+export async function disconnectObs(roomId?: string): Promise<void> {
   if (roomId) void announceClips(roomId, false);
+  await obs.restoreProfile();
+  obs.close();
+  set({ phase: "off", message: "", testMb: null, captureWarning: "", profileNote: "" });
 }
+
+export interface LocalClips {
+  dir: string;
+  count: number;
+  bytes: number;
+}
+
+export const localClipsInfo = () => invoke<LocalClips>("local_clips_info").catch(() => null);
+export const cleanLocalClips = () => invoke<LocalClips>("clean_local_clips");
+export const openClipsDir = () => invoke<void>("open_clips_dir").catch(() => {});
 
 /** Avisa a sala quem está com clips ativos. Melhor esforço: o jogo não depende disso. */
 export async function announceClips(roomId: string, active: boolean): Promise<void> {

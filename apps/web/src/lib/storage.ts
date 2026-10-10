@@ -22,6 +22,21 @@ export const setNickname = (n: string) => write("binguey:nick", n);
 export const getObsPassword = () => read("binguey:obs-pass") ?? "";
 export const setObsPassword = (p: string) => write("binguey:obs-pass", p);
 
+export interface Settings {
+  /** Apagar o arquivo local do replay depois que o clip foi enviado. Padrão: guardar (é o seu momento). */
+  deleteLocalAfterUpload: boolean;
+}
+
+export function getSettings(): Settings {
+  try {
+    const parsed = JSON.parse(read("binguey:settings") ?? "{}") as Partial<Settings>;
+    return { deleteLocalAfterUpload: parsed.deleteLocalAfterUpload === true };
+  } catch {
+    return { deleteLocalAfterUpload: false };
+  }
+}
+export const setSettings = (s: Settings) => write("binguey:settings", JSON.stringify(s));
+
 export interface RecentRoom {
   code: string;
   at: number;

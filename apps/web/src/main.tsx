@@ -12,6 +12,7 @@ import { App } from "./App";
 
 if (window.__TAURI__) {
   void import("./lib/deeplink").then((m) => m.setupDeepLinks());
+  void import("./lib/lifecycle").then((m) => m.setupLifecycle());
   void import("./lib/devAuto").then((m) => m.maybeRunDevAuto());
 }
 

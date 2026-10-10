@@ -2,6 +2,9 @@
 
 interface TauriGlobal {
   core: { invoke: <T>(cmd: string, args?: Record<string, unknown>) => Promise<T> };
+  window?: {
+    getCurrentWindow: () => { onCloseRequested: (cb: () => void | Promise<void>) => Promise<() => void> };
+  };
   event: { listen: <T>(name: string, cb: (e: { payload: T }) => void) => Promise<() => void> };
 }
 

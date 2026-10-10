@@ -53,6 +53,96 @@ fn read_clip(path: String, state: State<RecordDir>) -> Result<Response, String> 
     fs::read(&file).map(Response::new).map_err(|e| e.to_string())
 }
 
+// ---- Clips locais (pasta dedicada do Binguey) ----------------------------------------------------
+
+/// Pasta padrão dos replays do Binguey: Vídeos\Binguey (criada se não existir).
+#[tauri::command]
+fn default_clips_dir() -> Result<String, String> {
+    let home = std::env::var("USERPROFILE").map_err(|_| "USERPROFILE indisponível".to_string())?;
+    let dir = PathBuf::from(home).join("Videos").join("Binguey");
+    fs::create_dir_all(&dir).map_err(|e| format!("não consegui criar {}: {e}", dir.display()))?;
+    Ok(dir.display().to_string())
+}
+
+/// Apagar só é permitido na pasta dedicada "Binguey", nunca numa pasta de gravação comum do usuário.
+fn dedicated_dir(state: &State<RecordDir>) -> Result<PathBuf, String> {
+    let dir = state.0.lock().unwrap().clone().ok_or("pasta de gravação não definida")?;
+    let name = dir.file_name().and_then(|n| n.to_str()).unwrap_or("").to_lowercase();
+    if name != "binguey" {
+        return Err("pasta_nao_dedicada".into());
+    }
+    Ok(dir)
+}
+
+fn is_replay_file(path: &std::path::Path) -> bool {
+    let name = path.file_name().and_then(|n| n.to_str()).unwrap_or("");
+    let ext = path.extension().and_then(|e| e.to_str()).unwrap_or("").to_lowercase();
+    name.starts_with("Replay ") && (ext == "mp4" || ext == "mkv")
+}
+
+fn replay_files(dir: &std::path::Path) -> Vec<(PathBuf, u64)> {
+    fs::read_dir(dir)
+        .map(|rd| {
+            rd.filter_map(|e| e.ok())
+                .map(|e| e.path())
+                .filter(|p| p.is_file() && is_replay_file(p))
+                .filter_map(|p| fs::metadata(&p).ok().map(|m| (p, m.len())))
+                .collect()
+        })
+        .unwrap_or_default()
+}
+
+#[derive(serde::Serialize)]
+struct LocalClips {
+    dir: String,
+    count: usize,
+    bytes: u64,
+}
+
+#[tauri::command]
+fn local_clips_info(state: State<RecordDir>) -> Result<LocalClips, String> {
+    let dir = state.0.lock().unwrap().clone().ok_or("pasta de gravação não definida")?;
+    let files = replay_files(&dir);
+    Ok(LocalClips {
+        dir: dir.display().to_string(),
+        count: files.len(),
+        bytes: files.iter().map(|(_, n)| n).sum(),
+    })
+}
+
+/// Apaga todos os "Replay *.mp4/.mkv" da pasta dedicada. Devolve quantos e quantos bytes.
+#[tauri::command]
+fn clean_local_clips(state: State<RecordDir>) -> Result<LocalClips, String> {
+    let dir = dedicated_dir(&state)?;
+    let mut count = 0;
+    let mut bytes = 0;
+    for (path, len) in replay_files(&dir) {
+        if fs::remove_file(&path).is_ok() {
+            count += 1;
+            bytes += len;
+        }
+    }
+    Ok(LocalClips { dir: dir.display().to_string(), count, bytes })
+}
+
+/// Apaga um replay específico (depois de enviado), com as mesmas travas.
+#[tauri::command]
+fn delete_clip(path: String, state: State<RecordDir>) -> Result<(), String> {
+    let dir = dedicated_dir(&state)?;
+    let file = fs::canonicalize(&path).map_err(|e| format!("arquivo inválido: {e}"))?;
+    if !file.starts_with(&dir) || !is_replay_file(&file) {
+        return Err("arquivo não permitido".into());
+    }
+    fs::remove_file(&file).map_err(|e| e.to_string())
+}
+
+#[tauri::command]
+fn open_clips_dir(state: State<RecordDir>) -> Result<(), String> {
+    let dir = state.0.lock().unwrap().clone().ok_or("pasta de gravação não definida")?;
+    Command::new("explorer").arg(&dir).spawn().map_err(|e| e.to_string())?;
+    Ok(())
+}
+
 #[derive(serde::Serialize)]
 struct ObsWebsocketConfig {
     enabled: bool,
@@ -230,6 +320,11 @@ pub fn run() {
             set_record_dir,
             read_clip,
             read_obs_websocket_config,
+            default_clips_dir,
+            local_clips_info,
+            clean_local_clips,
+            delete_clip,
+            open_clips_dir,
             launch_obs,
             take_pending_link,
             dev_config,

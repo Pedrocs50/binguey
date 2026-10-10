@@ -19,6 +19,8 @@ export class ObsError extends Error {
 }
 
 export const OBS_URL = "ws://127.0.0.1:4455";
+export const PROFILE = "Binguey";
+const PREV_PROFILE_KEY = "binguey:obs-prev-profile";
 const OUTPUTS_EVENTS = 1 << 6; // obs-websocket: EventSubscription.Outputs (ReplayBufferSaved)
 
 interface Response {
@@ -144,10 +146,149 @@ export class ObsClient {
     });
   }
 
+  // ---- Perfil dedicado do Binguey ---------------------------------------------------------------
+
+  /** Aviso (não impede o uso) quando o perfil dedicado não pôde ser configurado. */
+  profileNote = "";
+
+  private async param(category: string, name: string): Promise<string> {
+    const r = await this.request("GetProfileParameter", { parameterCategory: category, parameterName: name });
+    return r.ok ? String(r.data.parameterValue ?? "") : "";
+  }
+
+  private async mustOk(type: string, data?: Record<string, unknown>): Promise<Response> {
+    const r = await this.request(type, data);
+    if (!r.ok) throw new ObsError("save_failed", `${type} falhou: ${r.comment ?? r.code}`);
+    return r;
+  }
+
+  private async stopReplayBuffer(): Promise<void> {
+    const s = await this.request("GetReplayBufferStatus");
+    if (!s.ok || !s.data.outputActive) return;
+    await this.request("StopReplayBuffer");
+    for (let i = 0; i < 20; i++) {
+      await new Promise((r) => setTimeout(r, 250));
+      const t = await this.request("GetReplayBufferStatus");
+      if (!t.data.outputActive) return;
+    }
+  }
+
+  /**
+   * Usa um perfil só do Binguey (720p, 3 Mbps, buffer de 20 s, pasta Vídeos\Binguey), sem tocar no
+   * perfil do usuário. Reaproveita dele o encoder (ex.: NVENC) e o tamanho da tela, para a cena continuar
+   * igual. O nome do perfil anterior fica guardado para `restoreProfile`.
+   */
+  async useBingueyProfile(): Promise<void> {
+    const list = await this.mustOk("GetProfileList");
+    const current = String(list.data.currentProfileName);
+    const profiles = (list.data.profiles ?? []) as string[];
+
+    if (current === PROFILE && (await this.param("SimpleOutput", "VBitrate")) === "3000") {
+      // Já configurado; só garante que o OBS criou a saída do Replay Buffer.
+      if (!(await this.request("GetReplayBufferStatus")).ok) await this.reloadProfile();
+      return;
+    }
+
+    let encoder = "";
+    if (current !== PROFILE) {
+      encoder = await this.param("SimpleOutput", "StreamEncoder");
+      localStorage.setItem(PREV_PROFILE_KEY, current);
+    }
+    const video = await this.mustOk("GetVideoSettings");
+    const baseW = Number(video.data.baseWidth);
+    const baseH = Number(video.data.baseHeight);
+
+    await this.stopReplayBuffer();
+    if (current !== PROFILE) {
+      await this.mustOk(profiles.includes(PROFILE) ? "SetCurrentProfile" : "CreateProfile", { profileName: PROFILE });
+      await new Promise((r) => setTimeout(r, 500));
+    }
+
+    const params: [string, string, string][] = [
+      ["Output", "Mode", "Simple"],
+      ["SimpleOutput", "RecRB", "true"],
+      ["SimpleOutput", "RecRBTime", "20"],
+      ["SimpleOutput", "RecRBSize", "512"],
+      ["SimpleOutput", "RecQuality", "Stream"],
+      ["SimpleOutput", "RecFormat2", "hybrid_mp4"],
+      ["SimpleOutput", "VBitrate", "3000"],
+    ];
+    if (encoder) params.push(["SimpleOutput", "StreamEncoder", encoder]);
+    for (const [parameterCategory, parameterName, parameterValue] of params) {
+      await this.mustOk("SetProfileParameter", { parameterCategory, parameterName, parameterValue });
+    }
+
+    const outputHeight = Math.min(720, baseH);
+    const outputWidth = Math.round((outputHeight * baseW) / baseH / 2) * 2; // largura par
+    await this.mustOk("SetVideoSettings", {
+      baseWidth: baseW,
+      baseHeight: baseH,
+      outputWidth,
+      outputHeight,
+      fpsNumerator: 30,
+      fpsDenominator: 1,
+    });
+    await this.mustOk("SetRecordDirectory", { recordDirectory: await invoke<string>("default_clips_dir") });
+
+    // O OBS só cria a saída do Replay Buffer ao carregar o perfil; se ainda não existe, recarrega.
+    if (!(await this.request("GetReplayBufferStatus")).ok) await this.reloadProfile();
+  }
+
+  /** Recarrega o perfil do Binguey trocando para outro perfil e voltando. */
+  private async reloadProfile(): Promise<void> {
+    const list = await this.mustOk("GetProfileList");
+    const profiles = (list.data.profiles ?? []) as string[];
+    const saved = localStorage.getItem(PREV_PROFILE_KEY);
+    const other = saved && profiles.includes(saved) ? saved : profiles.find((p) => p !== PROFILE);
+    if (!other) return;
+    await this.stopReplayBuffer();
+    await this.mustOk("SetCurrentProfile", { profileName: other });
+    await new Promise((r) => setTimeout(r, 800));
+    await this.mustOk("SetCurrentProfile", { profileName: PROFILE });
+    await new Promise((r) => setTimeout(r, 800));
+  }
+
+  /** Volta ao perfil que o usuário usava antes (se o Binguey o trocou). Melhor esforço. */
+  async restoreProfile(): Promise<void> {
+    const previous = localStorage.getItem(PREV_PROFILE_KEY);
+    if (!previous || !this.connected) return;
+    try {
+      const list = await this.request("GetProfileList");
+      const profiles = (list.data.profiles ?? []) as string[];
+      if (list.data.currentProfileName === PROFILE && profiles.includes(previous)) {
+        await this.stopReplayBuffer();
+        await this.request("SetCurrentProfile", { profileName: previous });
+      }
+      localStorage.removeItem(PREV_PROFILE_KEY);
+    } catch {
+      /* se o OBS não responder, o perfil volta quando o usuário trocar manualmente */
+    }
+  }
+
+  /** Resumo do que está valendo no OBS agora (para o teste automático). */
+  async describeSetup(): Promise<string> {
+    const list = await this.request("GetProfileList");
+    const video = await this.request("GetVideoSettings");
+    const dir = await this.request("GetRecordDirectory");
+    return (
+      `perfil=${list.data.currentProfileName} · saída=${video.data.outputWidth}x${video.data.outputHeight}` +
+      `@${video.data.fpsNumerator}/${video.data.fpsDenominator} · bitrate=${await this.param("SimpleOutput", "VBitrate")}` +
+      ` · buffer=${await this.param("SimpleOutput", "RecRBTime")}s · pasta=${dir.data.recordDirectory}`
+    );
+  }
+
   /** Lê versão e pasta de gravação (liberando-a para o app) e garante o Replay Buffer ligado. */
   async prepare(): Promise<void> {
     const version = await this.request("GetVersion");
     this.obsVersion = String(version.data.obsVersion ?? "");
+
+    this.profileNote = "";
+    try {
+      await this.useBingueyProfile();
+    } catch (e) {
+      // Sem o perfil dedicado o app ainda funciona com a configuração atual do usuário.
+      this.profileNote = `Não consegui preparar o perfil do Binguey no OBS (${e instanceof Error ? e.message : e}). Usando a sua configuração atual.`;
+    }
 
     const dir = await this.request("GetRecordDirectory");
     this.recordDir = await invoke<string>("set_record_dir", { dir: String(dir.data.recordDirectory) });

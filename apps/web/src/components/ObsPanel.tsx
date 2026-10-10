@@ -2,8 +2,18 @@ import { useEffect, useState, type FormEvent } from "react";
 import type { ClipPolicy } from "@binguey/shared";
 import { useClipQueue } from "../lib/clips";
 import { isDesktop } from "../lib/desktop";
-import { autoConnectObs, connectObs, disconnectObs, readObsConfig, useObsState } from "../lib/obsStore";
-import { getObsPassword } from "../lib/storage";
+import {
+  autoConnectObs,
+  cleanLocalClips,
+  connectObs,
+  disconnectObs,
+  localClipsInfo,
+  openClipsDir,
+  readObsConfig,
+  useObsState,
+  type LocalClips,
+} from "../lib/obsStore";
+import { getObsPassword, getSettings, setSettings } from "../lib/storage";
 
 const RELEASES_URL = "https://github.com/Pedrocs50/binguey/releases/latest";
 
@@ -26,6 +36,57 @@ function InstallHint() {
       </p>
       <p className="rotulo">Sem o app o bingo funciona normalmente, só não grava clips.</p>
     </section>
+  );
+}
+
+/** Arquivos locais dos replays: por padrão ficam guardados; apagar é opção do jogador. */
+function LocalFiles() {
+  const queue = useClipQueue();
+  const [info, setInfo] = useState<LocalClips | null>(null);
+  const [del, setDel] = useState(() => getSettings().deleteLocalAfterUpload);
+  const [error, setError] = useState("");
+
+  useEffect(() => {
+    void localClipsInfo().then(setInfo);
+  }, [queue.uploaded, queue.pending]);
+
+  async function clean() {
+    if (!info || !window.confirm(`Apagar ${info.count} clips guardados neste computador? Os já enviados à sala continuam lá.`)) return;
+    setError("");
+    try {
+      await cleanLocalClips();
+      setInfo(await localClipsInfo());
+    } catch (e) {
+      setError(e instanceof Error && e.message === "pasta_nao_dedicada" ? "Só limpo a pasta própria do Binguey." : "Não consegui apagar.");
+    }
+  }
+
+  return (
+    <div className="arquivos">
+      <p className="rotulo" style={{ margin: "0 0 0.4rem" }}>
+        arquivos neste computador: {info ? `${info.count} clips · ${(info.bytes / 1024 / 1024).toFixed(0)} MB` : "…"}
+      </p>
+      <label className="mono" style={{ display: "block", marginBottom: "0.6rem" }}>
+        <input
+          type="checkbox"
+          checked={del}
+          onChange={(e) => {
+            setDel(e.target.checked);
+            setSettings({ deleteLocalAfterUpload: e.target.checked });
+          }}
+        />{" "}
+        apagar o arquivo daqui depois de enviar à sala
+      </label>
+      <div className="acoes">
+        <button className="botao sec" type="button" onClick={() => void openClipsDir()}>
+          abrir pasta
+        </button>
+        <button className="botao sec" type="button" disabled={!info || info.count === 0} onClick={() => void clean()}>
+          limpar agora
+        </button>
+      </div>
+      {error && <p className="rotulo">{error}</p>}
+    </div>
   );
 }
 
@@ -92,6 +153,7 @@ function Wizard({ roomId, compact }: { roomId: string; compact: boolean }) {
         </p>
       )}
       {ready && obs.captureWarning && <div className="aviso">{obs.captureWarning}</div>}
+      {ready && obs.profileNote && <div className="aviso">{obs.profileNote}</div>}
       {obs.phase === "error" && (
         <div className="aviso erro" role="alert">
           {obs.message}
@@ -114,6 +176,7 @@ function Wizard({ roomId, compact }: { roomId: string; compact: boolean }) {
         <summary className="mono">{ready ? "[clips ativos]" : "clips desligados — conectar ao OBS"}</summary>
         {status}
         {form}
+        {ready && <LocalFiles />}
       </details>
     );
   }
@@ -122,6 +185,7 @@ function Wizard({ roomId, compact }: { roomId: string; compact: boolean }) {
       <h2>clips automáticos</h2>
       {status}
       {form}
+      {ready && <LocalFiles />}
       {!ready && (
         <p className="rotulo" style={{ marginTop: "1rem" }}>
           Antes: no OBS, ative o servidor WebSocket (Ferramentas → Configurações do servidor WebSocket) e o Buffer de

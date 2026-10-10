@@ -1,10 +1,11 @@
 // Teste ponta a ponta automático do fluxo de clips, SÓ no app de desktop em build de debug
 // e com BINGUEY_AUTOTEST=1 (ver apps/desktop/README.md). Em release `dev_config` devolve auto=false.
-import { api } from "@binguey/shared";
+import { api, ensureSession } from "@binguey/shared";
 import { createRoomAs } from "./actions";
 import { getClipStatus, captureClip } from "./clips";
 import { invoke } from "./desktop";
-import { connectObs, getObsState, readObsConfig } from "./obsStore";
+import { obs } from "./obs";
+import { cleanLocalClips, connectObs, getObsState, localClipsInfo, readObsConfig } from "./obsStore";
 import { supabase } from "./supabase";
 
 interface DevConfig {
@@ -20,6 +21,10 @@ export async function maybeRunDevAuto(): Promise<void> {
   const report = (line: string) => void invoke("dev_report", { line });
 
   try {
+    await ensureSession(supabase);
+    const meId = (await supabase.auth.getUser()).data.user!.id;
+    const open = await supabase.from("rooms").select("id").eq("host_id", meId).eq("status", "running");
+    for (const r of open.data ?? []) await api.endRoom(supabase, r.id).catch(() => {}); // salas de testes anteriores
     report("E2E: criando e iniciando uma sala de teste");
     const room = await createRoomAs("AutoTester", { size: 3, durationS: 600, targetLines: 1, clipPolicy: "optional" });
     await api.startRoom(supabase, room.id);
@@ -29,9 +34,9 @@ export async function maybeRunDevAuto(): Promise<void> {
     const fromConfig = await readObsConfig();
     report(`  senha lida da configuração do OBS: ${fromConfig?.password ? "sim" : "NÃO"} (WebSocket ${fromConfig?.enabled ? "ativado" : "desativado"})`);
     await connectObs(cfg.password || fromConfig?.password || "", { roomId: room.id });
-    const obs = getObsState();
-    if (obs.phase !== "ready") throw new Error(`OBS não ficou pronto: ${obs.message}`);
-    report(`  OBS ${obs.version} pronto`);
+    const obsState = getObsState();
+    if (obsState.phase !== "ready") throw new Error(`OBS não ficou pronto: ${obsState.message}`);
+    report(`  OBS ${obsState.version} pronto`);
     await sleep(1500);
 
     const me = (await supabase.auth.getUser()).data.user!.id;
@@ -64,8 +69,30 @@ export async function maybeRunDevAuto(): Promise<void> {
 
     const dup = await captureOnLostMark(room.id, me);
     report(`E2E.4 ${dup ? "PASS" : "FAIL"}  marcação perdida não gera clip`);
+
+    const setup = await obs.describeSetup();
+    const profileOk = /perfil=Binguey/.test(setup) && /x720@/.test(setup) && /bitrate=3000/.test(setup) && /Binguey$/i.test(setup);
+    report(`E2E.5 ${profileOk ? "PASS" : "FAIL"}  perfil dedicado: ${setup}`);
+    if (getObsState().profileNote) report(`  aviso: ${getObsState().profileNote}`);
+
+    const before = await localClipsInfo();
+    const cleaned = await cleanLocalClips().catch((e) => ({ count: -1, bytes: 0, dir: String(e) }));
+    const after = await localClipsInfo();
+    report(
+      `E2E.6 ${(before?.count ?? 0) >= 1 && cleaned.count >= 1 && after?.count === 0 ? "PASS" : "FAIL"}  arquivos locais: ` +
+        `${before?.count} antes → limpou ${cleaned.count} (${(cleaned.bytes / 1024 / 1024).toFixed(1)} MB) → ${after?.count} depois`,
+    );
+
+    const ended = await api.endRoom(supabase, room.id).catch(() => null);
+    report(`E2E.8 ${ended?.result === "ended" ? "PASS" : "FAIL"}  anfitrião encerra a partida (result=${ended?.result})`);
+
+    const previous = localStorage.getItem("binguey:obs-prev-profile");
+    await obs.restoreProfile();
+    const restored = await obs.describeSetup();
+    report(`E2E.7 ${previous && restored.includes(`perfil=${previous}`) ? "PASS" : "FAIL"}  perfil devolvido: ${restored}`);
   } catch (e) {
     report(`ERRO: ${e instanceof Error ? e.message : String(e)}`);
+    await obs.restoreProfile().catch(() => {}); // deixa o OBS do jogador como estava
   }
   report("FIM");
   await invoke("dev_exit");
