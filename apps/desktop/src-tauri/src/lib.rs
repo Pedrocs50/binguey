@@ -4,7 +4,9 @@ use std::{
     path::PathBuf,
     sync::Mutex,
 };
-use tauri::{ipc::Response, AppHandle, State};
+use std::process::{Command, Stdio};
+use tauri::{ipc::Response, AppHandle, Emitter, Manager, State};
+use tauri_plugin_deep_link::DeepLinkExt;
 
 const MAX_CLIP_BYTES: u64 = 50 * 1024 * 1024; // limite por arquivo do Storage gratuito
 
@@ -80,6 +82,84 @@ fn read_obs_websocket_config() -> Result<ObsWebsocketConfig, String> {
     })
 }
 
+// ---- Abrir o OBS --------------------------------------------------------------------------------
+
+#[cfg(windows)]
+fn hide_console(cmd: &mut Command) -> &mut Command {
+    use std::os::windows::process::CommandExt;
+    cmd.creation_flags(0x0800_0000) // CREATE_NO_WINDOW
+}
+#[cfg(not(windows))]
+fn hide_console(cmd: &mut Command) -> &mut Command {
+    cmd
+}
+
+fn obs_is_running() -> bool {
+    let mut cmd = Command::new("tasklist");
+    hide_console(&mut cmd).args(["/FI", "IMAGENAME eq obs64.exe", "/NH"]);
+    cmd.output()
+        .map(|o| String::from_utf8_lossy(&o.stdout).to_lowercase().contains("obs64.exe"))
+        .unwrap_or(false)
+}
+
+/// Abre o OBS (instalação padrão) com o Replay Buffer ligado. Não recebe caminho da interface.
+/// Erros: "ja_aberto" (o OBS já está rodando) e "nao_encontrado".
+#[tauri::command]
+fn launch_obs() -> Result<String, String> {
+    if obs_is_running() {
+        return Err("ja_aberto".into());
+    }
+    let mut roots: Vec<PathBuf> = Vec::new();
+    for (var, sub) in [
+        ("ProgramFiles", "obs-studio"),
+        ("ProgramFiles(x86)", "obs-studio"),
+        ("LOCALAPPDATA", "Programs\\obs-studio"),
+        ("ProgramFiles(x86)", "Steam\\steamapps\\common\\OBS Studio"),
+    ] {
+        if let Ok(base) = std::env::var(var) {
+            roots.push(PathBuf::from(base).join(sub));
+        }
+    }
+    let bin = roots
+        .iter()
+        .map(|r| r.join("bin").join("64bit"))
+        .find(|d| d.join("obs64.exe").is_file())
+        .ok_or("nao_encontrado")?;
+    // O OBS precisa abrir com a pasta bin\64bit como diretório atual.
+    Command::new(bin.join("obs64.exe"))
+        .current_dir(&bin)
+        .args(["--startreplaybuffer", "--disable-shutdown-check"])
+        .stdout(Stdio::null())
+        .stderr(Stdio::null())
+        .spawn()
+        .map_err(|e| format!("falha ao abrir o OBS: {e}"))?;
+    Ok(bin.join("obs64.exe").display().to_string())
+}
+
+// ---- Deep link: binguey://j/CODIGO --------------------------------------------------------------
+
+/// Último link recebido, para a interface buscar caso o evento chegue antes dela estar pronta.
+#[derive(Default)]
+struct PendingLink(Mutex<Option<String>>);
+
+#[tauri::command]
+fn take_pending_link(state: State<PendingLink>) -> Option<String> {
+    state.0.lock().unwrap().take()
+}
+
+fn handle_links(app: &AppHandle, urls: Vec<String>) {
+    // Só repassa o esquema do app; quem valida o formato do código é a interface (parseInvite).
+    if let Some(url) = urls.into_iter().find(|u| u.starts_with("binguey://")) {
+        *app.state::<PendingLink>().0.lock().unwrap() = Some(url.clone());
+        let _ = app.emit("binguey-deeplink", url);
+        if let Some(w) = app.get_webview_window("main") {
+            let _ = w.unminimize();
+            let _ = w.show();
+            let _ = w.set_focus();
+        }
+    }
+}
+
 // ---- Auxiliares de desenvolvimento (desligados em release) ------------------------------------------
 
 #[derive(serde::Serialize)]
@@ -123,11 +203,35 @@ fn dev_exit(app: AppHandle) {
 
 pub fn run() {
     tauri::Builder::default()
+        // Deve ser o primeiro plugin: um segundo clique em convite entrega o link à janela já aberta.
+        .plugin(tauri_plugin_single_instance::init(|app, _argv, _cwd| {
+            if let Some(w) = app.get_webview_window("main") {
+                let _ = w.unminimize();
+                let _ = w.set_focus();
+            }
+        }))
+        .plugin(tauri_plugin_deep_link::init())
         .manage(RecordDir::default())
+        .manage(PendingLink::default())
+        .setup(|app| {
+            // Em desenvolvimento o instalador não existe: registra o esquema binguey:// em tempo de execução.
+            #[cfg(debug_assertions)]
+            let _ = app.deep_link().register_all();
+            if let Ok(Some(urls)) = app.deep_link().get_current() {
+                handle_links(app.handle(), urls.iter().map(|u| u.to_string()).collect());
+            }
+            let handle = app.handle().clone();
+            app.deep_link().on_open_url(move |event| {
+                handle_links(&handle, event.urls().iter().map(|u| u.to_string()).collect());
+            });
+            Ok(())
+        })
         .invoke_handler(tauri::generate_handler![
             set_record_dir,
             read_clip,
             read_obs_websocket_config,
+            launch_obs,
+            take_pending_link,
             dev_config,
             dev_report,
             dev_exit

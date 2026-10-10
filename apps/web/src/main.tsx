@@ -10,7 +10,10 @@ import "./styles/global.css";
 import "./styles/app.css";
 import { App } from "./App";
 
-if (window.__TAURI__) void import("./lib/devAuto").then((m) => m.maybeRunDevAuto());
+if (window.__TAURI__) {
+  void import("./lib/deeplink").then((m) => m.setupDeepLinks());
+  void import("./lib/devAuto").then((m) => m.maybeRunDevAuto());
+}
 
 createRoot(document.getElementById("root")!).render(
   <StrictMode>

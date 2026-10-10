@@ -19,6 +19,11 @@
       "devCsp": "default-src 'self' http://localhost:5173 ws://localhost:5173; script-src 'self' 'unsafe-inline' http://localhost:5173; style-src 'self' 'unsafe-inline' http://localhost:5173; font-src 'self' data: http://localhost:5173; connect-src 'self' ipc: http://ipc.localhost http://localhost:5173 ws://localhost:5173 ws://127.0.0.1:4455 https://*.supabase.co wss://*.supabase.co; img-src 'self' data: blob: https://*.supabase.co; media-src 'self' blob: https://*.supabase.co"
     }
   },
+  "plugins": {
+    "deep-link": {
+      "desktop": { "schemes": ["binguey"] }
+    }
+  },
   "bundle": {
     "active": false
   }

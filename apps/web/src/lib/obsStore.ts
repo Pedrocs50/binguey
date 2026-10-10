@@ -41,6 +41,47 @@ function describe(e: unknown): string {
   return e instanceof ObsError || e instanceof Error ? e.message : "Erro desconhecido ao falar com o OBS.";
 }
 
+const sleep = (ms: number) => new Promise((r) => setTimeout(r, ms));
+
+/** Conecta; se o OBS não estiver aberto, abre (instalação padrão) e espera ele responder. */
+async function connectOrLaunch(password: string): Promise<void> {
+  try {
+    await obs.connect(password);
+    return;
+  } catch (e) {
+    if (!(e instanceof ObsError) || e.code !== "unreachable") throw e;
+  }
+
+  try {
+    await invoke<string>("launch_obs");
+  } catch (e) {
+    const reason = e instanceof Error ? e.message : String(e);
+    if (reason === "ja_aberto")
+      throw new ObsError(
+        "unreachable",
+        "O OBS está aberto, mas o WebSocket não responde. No OBS: Ferramentas → Configurações do servidor WebSocket → ativar (porta 4455).",
+      );
+    if (reason === "nao_encontrado")
+      throw new ObsError("unreachable", "OBS não encontrado. Instale em obsproject.com e tente de novo.");
+    throw new ObsError("unreachable", reason);
+  }
+
+  set({ message: "Abrindo o OBS…" });
+  for (let i = 0; i < 30; i++) {
+    await sleep(1000);
+    try {
+      await obs.connect(password);
+      return;
+    } catch (e) {
+      if (!(e instanceof ObsError) || e.code !== "unreachable") throw e;
+    }
+  }
+  throw new ObsError(
+    "unreachable",
+    "Abri o OBS, mas ele não respondeu em 30 s. Confira se o servidor WebSocket está ativado nas configurações dele.",
+  );
+}
+
 /**
  * Conecta ao OBS, prepara o Replay Buffer e, se `test`, grava um clip de teste.
  * Em qualquer caso avisa a sala (set_clips_active) quando `roomId` é informado.
@@ -49,7 +90,7 @@ export async function connectObs(password: string, opts: { test?: boolean; roomI
   if (!isDesktop()) return;
   set({ phase: "connecting", message: "Conectando ao OBS…" });
   try {
-    await obs.connect(password);
+    await connectOrLaunch(password);
     await obs.prepare();
     let testMb: number | null = null;
     if (opts.test) {

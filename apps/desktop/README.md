@@ -13,6 +13,18 @@ pnpm --filter @binguey/desktop tauri dev      # sobe o site (Vite) e abre o app
 
 Primeira compilação: ~3 min. A senha do WebSocket do OBS é digitada no app (fica só no computador).
 
+## Só o app e o OBS
+
+- **Convite abre o app:** links `binguey://j/CODIGO` (botão "abrir no app" na página do convite) levam
+  direto à tela de entrada da sala. Uma única instância do app: um segundo clique é entregue à janela aberta.
+  A interface só aceita códigos de 6 caracteres do alfabeto de salas (`parseInvite`); o resto é ignorado.
+  Em desenvolvimento o app registra o esquema em `HKCU\Software\Classes\binguey` (apontando para o
+  executável de debug); na versão instalada, o instalador faz isso.
+- **Senha do OBS:** lida de `%APPDATA%\obs-studio\plugin_config\obs-websocket\config.json` (comando
+  `read_obs_websocket_config`); ninguém digita nada.
+- **OBS fechado:** o app o abre sozinho (comando `launch_obs`: instalação padrão, `--startreplaybuffer`,
+  sem receber caminho da interface). Se o OBS já está aberto mas o WebSocket não responde, mostra como ativar.
+
 ## Como funciona um clip
 
 1. O jogador toca na casa → `mark_cell` (RPC) e, em paralelo, uma espera de 2 s (pós-roll).

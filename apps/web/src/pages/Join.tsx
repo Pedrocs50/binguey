@@ -2,6 +2,7 @@ import { useState, type FormEvent } from "react";
 import { isValidRoomCode, normalizeRoomCode } from "@binguey/shared";
 import { Link } from "../components/Link";
 import { joinRoomAs, validateNickname } from "../lib/actions";
+import { isDesktop } from "../lib/desktop";
 import { errorMessage } from "../lib/errors";
 import { navigate } from "../lib/router";
 import { getNickname } from "../lib/storage";
@@ -52,10 +53,22 @@ export function Join({ code: raw }: { code: string }) {
           <input value={nick} onChange={(e) => setNick(e.target.value)} maxLength={24} autoFocus autoComplete="nickname" />
           <span className="rotulo dica">sem e-mail, sem senha</span>
         </label>
-        <button className="botao" type="submit" disabled={busy}>
-          {busy ? "entrando…" : "entrar"}
-        </button>
+        <div className="acoes">
+          <button className="botao" type="submit" disabled={busy}>
+            {busy ? "entrando…" : "entrar"}
+          </button>
+          {!isDesktop() && (
+            <a className="botao sec" href={`binguey://j/${code}`}>
+              abrir no app
+            </a>
+          )}
+        </div>
       </form>
+      {!isDesktop() && (
+        <p className="rotulo" style={{ marginTop: "1rem" }}>
+          Quer clips automáticos? Use o app Binguey com o OBS. Sem o app, você joga normalmente pelo navegador.
+        </p>
+      )}
     </>
   );
 }

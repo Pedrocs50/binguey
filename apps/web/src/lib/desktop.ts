@@ -2,6 +2,7 @@
 
 interface TauriGlobal {
   core: { invoke: <T>(cmd: string, args?: Record<string, unknown>) => Promise<T> };
+  event: { listen: <T>(name: string, cb: (e: { payload: T }) => void) => Promise<() => void> };
 }
 
 declare global {
