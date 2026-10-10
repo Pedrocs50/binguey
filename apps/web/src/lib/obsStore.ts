@@ -85,9 +85,27 @@ export async function announceClips(roomId: string, active: boolean): Promise<vo
   }
 }
 
-/** Reconecta sozinho, na abertura do app, se já houver uma senha guardada. */
-export function autoConnectObs(roomId?: string) {
-  const saved = getObsPassword();
-  if (!isDesktop() || !saved || state.phase === "connecting" || state.phase === "ready") return;
-  void connectObs(saved, { roomId });
+export interface ObsWebsocketConfig {
+  enabled: boolean;
+  port: number;
+  auth_required: boolean;
+  password: string;
+}
+
+/** Configuração do WebSocket que o próprio OBS guarda no disco (null se não achar). */
+export async function readObsConfig(): Promise<ObsWebsocketConfig | null> {
+  if (!isDesktop()) return null;
+  return invoke<ObsWebsocketConfig>("read_obs_websocket_config").catch(() => null);
+}
+
+/**
+ * Reconecta sozinho ao entrar na sala. A senha vem do que o usuário já usou ou, na primeira vez,
+ * direto da configuração do OBS: ninguém precisa digitá-la.
+ */
+export async function autoConnectObs(roomId?: string): Promise<void> {
+  if (!isDesktop() || state.phase === "connecting" || state.phase === "ready") return;
+  const cfg = await readObsConfig();
+  const password = getObsPassword() || cfg?.password || "";
+  if (!password && cfg?.auth_required !== false) return; // sem senha para tentar: o painel pede
+  void connectObs(password, { roomId });
 }

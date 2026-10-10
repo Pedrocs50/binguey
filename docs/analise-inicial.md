@@ -80,7 +80,12 @@ Notas do S2:
 - O CSP do app **não** precisou de `unsafe-eval` nem de domínios externos para falar com o OBS.
 
 Pendências do S1:
-- Ler a senha/porta do OBS automaticamente **não foi testado** (por ora o app pede a senha uma vez).
+- Senha/porta do OBS: **resolvido**. O OBS guarda `server_enabled`, `server_port`, `server_password` e
+  `auth_required` em `%APPDATA%\obs-studio\plugin_config\obs-websocket\config.json`; o comando Rust
+  `read_obs_websocket_config` lê só esse arquivo e o app conecta sem o jogador digitar nada.
+- **Correção ao PDF:** o WebSocket do OBS escuta em `0.0.0.0:4455` (todas as interfaces), não só em
+  `127.0.0.1`, e o OBS não tem opção para restringir. A senha (auth_required) é a proteção; orientar a
+  não liberar o OBS no firewall do Windows para redes públicas.
 - Buffer cheio de 20 s a 6000 kbps (tela de monitor quase parada): **10,4 MB em 624 ms**. Com jogo em
   movimento deve chegar perto de 15 MB; medir num jogo real (S3). O primeiro teste deu só 2,3 MB porque
   o script tinha acabado de ligar o buffer.

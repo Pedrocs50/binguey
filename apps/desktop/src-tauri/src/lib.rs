@@ -51,6 +51,35 @@ fn read_clip(path: String, state: State<RecordDir>) -> Result<Response, String> 
     fs::read(&file).map(Response::new).map_err(|e| e.to_string())
 }
 
+#[derive(serde::Serialize)]
+struct ObsWebsocketConfig {
+    enabled: bool,
+    port: u16,
+    auth_required: bool,
+    password: String,
+}
+
+/// Lê a configuração do WebSocket do OBS (arquivo fixo, somente leitura) para o jogador não ter de
+/// digitar a senha. Só esse arquivo é lido; o caminho não vem da interface.
+#[tauri::command]
+fn read_obs_websocket_config() -> Result<ObsWebsocketConfig, String> {
+    let appdata = std::env::var("APPDATA").map_err(|_| "APPDATA indisponível".to_string())?;
+    let path = PathBuf::from(appdata)
+        .join("obs-studio")
+        .join("plugin_config")
+        .join("obs-websocket")
+        .join("config.json");
+    let text = fs::read_to_string(&path).map_err(|_| "configuração do OBS não encontrada".to_string())?;
+    let json: serde_json::Value =
+        serde_json::from_str(&text).map_err(|_| "configuração do OBS ilegível".to_string())?;
+    Ok(ObsWebsocketConfig {
+        enabled: json["server_enabled"].as_bool().unwrap_or(false),
+        port: json["server_port"].as_u64().unwrap_or(4455) as u16,
+        auth_required: json["auth_required"].as_bool().unwrap_or(true),
+        password: json["server_password"].as_str().unwrap_or("").to_string(),
+    })
+}
+
 // ---- Auxiliares de desenvolvimento (desligados em release) ------------------------------------------
 
 #[derive(serde::Serialize)]
@@ -98,6 +127,7 @@ pub fn run() {
         .invoke_handler(tauri::generate_handler![
             set_record_dir,
             read_clip,
+            read_obs_websocket_config,
             dev_config,
             dev_report,
             dev_exit

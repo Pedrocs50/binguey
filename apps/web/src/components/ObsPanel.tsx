@@ -2,7 +2,7 @@ import { useEffect, useState, type FormEvent } from "react";
 import type { ClipPolicy } from "@binguey/shared";
 import { useClipQueue } from "../lib/clips";
 import { isDesktop } from "../lib/desktop";
-import { autoConnectObs, connectObs, disconnectObs, useObsState } from "../lib/obsStore";
+import { autoConnectObs, connectObs, disconnectObs, readObsConfig, useObsState } from "../lib/obsStore";
 import { getObsPassword } from "../lib/storage";
 
 const RELEASES_URL = "https://github.com/Pedrocs50/binguey/releases/latest";
@@ -35,8 +35,11 @@ function Wizard({ roomId, compact }: { roomId: string; compact: boolean }) {
   const [password, setPassword] = useState(getObsPassword);
   const [open, setOpen] = useState(false);
 
-  // Se já há uma senha guardada, reconecta sozinho ao entrar na sala.
-  useEffect(() => autoConnectObs(roomId), [roomId]);
+  // Reconecta sozinho ao entrar na sala (senha guardada ou lida da configuração do OBS).
+  useEffect(() => {
+    void autoConnectObs(roomId);
+    if (!getObsPassword()) void readObsConfig().then((c) => c?.password && setPassword((p) => p || c.password));
+  }, [roomId]);
 
   function submit(e: FormEvent) {
     e.preventDefault();

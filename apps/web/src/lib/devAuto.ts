@@ -4,7 +4,7 @@ import { api } from "@binguey/shared";
 import { createRoomAs } from "./actions";
 import { getClipStatus, captureClip } from "./clips";
 import { invoke } from "./desktop";
-import { connectObs, getObsState } from "./obsStore";
+import { connectObs, getObsState, readObsConfig } from "./obsStore";
 import { supabase } from "./supabase";
 
 interface DevConfig {
@@ -25,7 +25,10 @@ export async function maybeRunDevAuto(): Promise<void> {
     await api.startRoom(supabase, room.id);
     report(`  sala ${room.code} em andamento`);
 
-    await connectObs(cfg.password, { roomId: room.id });
+    // Sem OBS_PASSWORD no ambiente, a senha tem de vir da configuração do próprio OBS (sem digitar).
+    const fromConfig = await readObsConfig();
+    report(`  senha lida da configuração do OBS: ${fromConfig?.password ? "sim" : "NÃO"} (WebSocket ${fromConfig?.enabled ? "ativado" : "desativado"})`);
+    await connectObs(cfg.password || fromConfig?.password || "", { roomId: room.id });
     const obs = getObsState();
     if (obs.phase !== "ready") throw new Error(`OBS não ficou pronto: ${obs.message}`);
     report(`  OBS ${obs.version} pronto`);
