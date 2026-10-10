@@ -1,5 +1,6 @@
 import { pickHighlights, type Cell, type Clip, type Mark, type Room } from "@binguey/shared";
 import { invoke } from "./desktop";
+import { getSettings } from "./storage";
 import { supabase } from "./supabase";
 
 export interface RenderResult {
@@ -58,7 +59,7 @@ export async function renderHighlights(src: VideoSource, onProgress: (pct: numbe
   let stop: (() => void) | undefined;
   try {
     stop = await window.__TAURI__?.event.listen<number>("binguey-render-progress", (e) => onProgress(e.payload));
-    return await invoke<RenderResult>("render_highlights", { plan: { segments, title: `sala ${src.room.code}` } });
+    return await invoke<RenderResult>("render_highlights", { plan: { segments, title: `sala ${src.room.code}`, height: getSettings().clipHeight } });
   } finally {
     stop?.();
   }

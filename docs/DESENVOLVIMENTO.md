@@ -30,7 +30,7 @@ pnpm typecheck
 
 1. Crie um projeto (região São Paulo) e ative **Authentication → Sign In / Providers → Allow anonymous sign-ins**.
 2. Copie `.env.example` para `.env.local` e preencha `VITE_SUPABASE_URL` e `VITE_SUPABASE_ANON_KEY`.
-3. No **SQL Editor**, rode em ordem os arquivos de `supabase/migrations/` (0001 a 0009) e depois `supabase/seed.sql`.
+3. No **SQL Editor**, rode em ordem os arquivos de `supabase/migrations/` (0001 a 0010) e depois `supabase/seed.sql`.
 4. Limpeza automática: veja [`supabase/functions/purge-expired/README.md`](../supabase/functions/purge-expired/README.md).
 
 Regras do jogo vivem no Postgres (funções RPC `security definer`); o cliente só lê e chama RPCs.

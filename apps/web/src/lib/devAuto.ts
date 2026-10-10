@@ -119,6 +119,8 @@ export async function maybeRunDevAuto(): Promise<void> {
     const ended = await api.endRoom(supabase, room.id).catch(() => null);
     report(`E2E.8 ${ended?.result === "ended" ? "PASS" : "FAIL"}  anfitrião encerra a partida (result=${ended?.result})`);
 
+    if (cfg.video) await qualityTest(report, me, cfg.password || fromConfig?.password || "");
+
     const previous = localStorage.getItem("binguey:obs-prev-profile");
     await obs.restoreProfile();
     const restored = await obs.describeSetup();
@@ -184,4 +186,46 @@ async function videoTest(report: (line: string) => void, me: string): Promise<vo
   );
   report(`  arquivo: ${res.path}`);
   await api.endRoom(supabase, room.id).catch(() => {});
+}
+
+/** 40 s em 1080p: o perfil do OBS muda, o clip sai com ~40 s e o vídeo final sai em 1080p. */
+async function qualityTest(report: (line: string) => void, me: string, password: string): Promise<void> {
+  const save = (extra: object) =>
+    localStorage.setItem("binguey:settings", JSON.stringify({ deleteLocalAfterUpload: false, captureMode: "display", ...extra }));
+  save({ clipSeconds: 40, clipHeight: 1080 });
+  await connectObs(password, {});
+  const setup = await obs.describeSetup();
+  const ok = /saída=1920x1080@/.test(setup) && /bitrate=5000/.test(setup) && /buffer=40s/.test(setup);
+  report(`E2E.14 ${ok ? "PASS" : "FAIL"}  qualidade alta no OBS: ${setup}`);
+
+  const room = await createRoomAs("AutoTester", { size: 3, durationS: 900, targetLines: 8, clipPolicy: "optional" });
+  await api.startRoom(supabase, room.id);
+  report("E2E.15  esperando 45 s para o buffer de 40 s encher...");
+  await sleep(45000);
+  const t0 = performance.now();
+  const mark = api.markCell(supabase, room.id, 0).catch(() => null);
+  void captureClip({ roomId: room.id, userId: me, mark });
+  let clip: Clip | null = null;
+  while (!clip && performance.now() - t0 < 120000) {
+    clip = (((await supabase.from("clips").select("*").eq("room_id", room.id).limit(1)).data ?? [])[0] as Clip | undefined) ?? null;
+    if (!clip) await sleep(500);
+  }
+  if (!clip) {
+    report("E2E.15 FAIL  o clip de 40 s não apareceu em 120 s");
+  } else {
+    const secs = (clip.duration_ms ?? 0) / 1000;
+    const mb = (clip.bytes ?? 0) / 1024 / 1024;
+    report(
+      `E2E.15 ${secs >= 35 && secs <= 45 && mb < 50 ? "PASS" : "FAIL"}  clip de ${secs.toFixed(1)} s, ${mb.toFixed(1)} MB, visível ${Math.round((performance.now() - t0) / 1000)} s após a marcação`,
+    );
+    const [cells, marks] = await Promise.all([supabase.from("cells").select("*").eq("room_id", room.id), supabase.from("marks").select("*").eq("room_id", room.id)]);
+    const res = await renderHighlights(
+      { room: { code: room.code, size: room.size }, cells: (cells.data ?? []) as Cell[], marks: (marks.data ?? []) as Mark[], clips: [clip], nicknames: { [me]: "AutoTester" } },
+      () => {},
+      10,
+    );
+    report(`E2E.16 ${res.black_ratio < 0.5 && res.duration_s > secs * 0.9 ? "PASS" : "FAIL"}  vídeo final em 1080p de ${res.duration_s.toFixed(1)} s, ${(res.bytes / 1024 / 1024).toFixed(1)} MB, montado em ${res.seconds.toFixed(1)} s, preto ${(res.black_ratio * 100).toFixed(0)}%`);
+  }
+  await api.endRoom(supabase, room.id).catch(() => {});
+  save({ clipSeconds: 20, clipHeight: 720 });
 }

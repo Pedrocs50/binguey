@@ -13,7 +13,7 @@ import {
   useObsState,
   type LocalClips,
 } from "../lib/obsStore";
-import { getObsPassword, getSettings, setSettings, type CaptureMode } from "../lib/storage";
+import { clipQuality, getObsPassword, getSettings, setSettings, type CaptureMode, type Settings } from "../lib/storage";
 
 const RELEASES_URL = "https://github.com/Pedrocs50/binguey/releases/latest";
 
@@ -63,6 +63,46 @@ function CaptureChoice({ roomId, password }: { roomId: string; password: string 
           <span className="rotulo dica"> — {m.hint}</span>
         </label>
       ))}
+    </fieldset>
+  );
+}
+
+/** Quanto tempo o clip guarda e em que resolução. Clips maiores gastam o armazenamento gratuito da sala. */
+function QualityChoice({ roomId, password }: { roomId: string; password: string }) {
+  const [q, setQ] = useState<Pick<Settings, "clipSeconds" | "clipHeight">>(() => {
+    const s = getSettings();
+    return { clipSeconds: s.clipSeconds, clipHeight: s.clipHeight };
+  });
+  const est = clipQuality(q);
+  function change(next: Pick<Settings, "clipSeconds" | "clipHeight">) {
+    setQ(next);
+    setSettings({ ...getSettings(), ...next });
+    void connectObs(getObsPassword() || password, { roomId });
+  }
+  return (
+    <fieldset className="modos">
+      <legend className="rotulo">qualidade dos clips</legend>
+      <div className="grade-campos">
+        <label className="campo">
+          <span className="rotulo">tempo antes da marcação</span>
+          <select value={q.clipSeconds} onChange={(e) => change({ ...q, clipSeconds: Number(e.target.value) as Settings["clipSeconds"] })}>
+            <option value={20}>20 segundos</option>
+            <option value={30}>30 segundos</option>
+            <option value={40}>40 segundos</option>
+          </select>
+        </label>
+        <label className="campo">
+          <span className="rotulo">resolução</span>
+          <select value={q.clipHeight} onChange={(e) => change({ ...q, clipHeight: Number(e.target.value) as Settings["clipHeight"] })}>
+            <option value={720}>720p</option>
+            <option value={1080}>1080p</option>
+          </select>
+        </label>
+      </div>
+      <p className="rotulo" style={{ margin: 0 }}>
+        cada clip fica com uns {est.estimatedMb} MB. {est.estimatedMb > 15 && "Clips grandes enchem rápido o armazenamento gratuito (limite de 400 MB por sala): o que passar disso fica só no seu computador. "}
+        Ao mudar, o OBS reinicia o buffer e os primeiros segundos podem sair mais curtos.
+      </p>
     </fieldset>
   );
 }
@@ -204,6 +244,7 @@ function Wizard({ roomId, compact }: { roomId: string; compact: boolean }) {
         {status}
         {form}
         {ready && <CaptureChoice roomId={roomId} password={password} />}
+        {ready && <QualityChoice roomId={roomId} password={password} />}
         {ready && <LocalFiles />}
       </details>
     );
@@ -214,6 +255,7 @@ function Wizard({ roomId, compact }: { roomId: string; compact: boolean }) {
       {status}
       {form}
       {ready && <CaptureChoice roomId={roomId} password={password} />}
+        {ready && <QualityChoice roomId={roomId} password={password} />}
         {ready && <LocalFiles />}
       {!ready && (
         <p className="rotulo" style={{ marginTop: "1rem" }}>

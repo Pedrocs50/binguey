@@ -1,5 +1,5 @@
 import { invoke } from "./desktop";
-import { getSettings, type CaptureMode } from "./storage";
+import { clipQuality, getSettings, type CaptureMode } from "./storage";
 
 export type ObsErrorCode =
   | "unreachable"
@@ -199,9 +199,10 @@ export class ObsClient {
   }
 
   /**
-   * Usa um perfil só do Binguey (720p, 3 Mbps, buffer de 20 s, pasta Vídeos\Binguey), sem tocar no
-   * perfil do usuário. Reaproveita dele o encoder (ex.: NVENC) e o tamanho da tela, para a cena continuar
-   * igual. O nome do perfil anterior fica guardado para `restoreProfile`.
+   * Usa um perfil só do Binguey (qualidade escolhida pelo jogador, buffer, pasta Vídeos\Binguey), sem tocar no
+   * perfil do usuário. Reaproveita dele o encoder (ex.: NVENC). Nos modos em que o Binguey monta a cena
+   * (monitor e Captura de Jogo) a tela do perfil é o monitor principal, para o clip sair na resolução real;
+   * no modo "mine" mantém a tela do jogador. O nome do perfil anterior fica guardado para `restoreProfile`.
    */
   async useBingueyProfile(): Promise<void> {
     const list = await this.mustOk("GetProfileList");
@@ -213,7 +214,30 @@ export class ObsClient {
       throw new ObsError("save_failed", `o OBS está em uso (${busy.join(", ")}); não troco o perfil nem a cena enquanto isso`);
     }
 
-    if (current === PROFILE && (await this.param("SimpleOutput", "VBitrate")) === "3000") {
+    const settings = getSettings();
+    const q = clipQuality(settings);
+    const video = await this.mustOk("GetVideoSettings");
+    let baseW = Number(video.data.baseWidth);
+    let baseH = Number(video.data.baseHeight);
+    if (settings.captureMode !== "mine") {
+      const monitors = await this.request("GetMonitorList");
+      const list2 = (monitors.data.monitors ?? []) as { monitorWidth: number; monitorHeight: number; monitorPositionX: number; monitorPositionY: number }[];
+      const main = list2.find((m) => m.monitorPositionX === 0 && m.monitorPositionY === 0) ?? list2[0];
+      if (monitors.ok && main && main.monitorWidth > 0 && main.monitorHeight > 0) {
+        baseW = main.monitorWidth;
+        baseH = main.monitorHeight;
+      }
+    }
+    const outputHeight = Math.min(q.height, baseH);
+    const outputWidth = Math.round((outputHeight * baseW) / baseH / 2) * 2; // largura par
+
+    if (
+      current === PROFILE &&
+      (await this.param("SimpleOutput", "VBitrate")) === String(q.kbps) &&
+      (await this.param("SimpleOutput", "RecRBTime")) === String(q.seconds) &&
+      Number(video.data.outputHeight) === outputHeight &&
+      (settings.captureMode === "mine" || (Number(video.data.baseWidth) === baseW && Number(video.data.baseHeight) === baseH))
+    ) {
       // Já configurado; só garante que o OBS criou a saída do Replay Buffer.
       if (!(await this.request("GetReplayBufferStatus")).ok) await this.reloadProfile();
       return;
@@ -224,9 +248,6 @@ export class ObsClient {
       encoder = await this.param("SimpleOutput", "StreamEncoder");
       localStorage.setItem(PREV_PROFILE_KEY, current);
     }
-    const video = await this.mustOk("GetVideoSettings");
-    const baseW = Number(video.data.baseWidth);
-    const baseH = Number(video.data.baseHeight);
 
     await this.stopReplayBuffer();
     if (current !== PROFILE) {
@@ -237,11 +258,11 @@ export class ObsClient {
     const params: [string, string, string][] = [
       ["Output", "Mode", "Simple"],
       ["SimpleOutput", "RecRB", "true"],
-      ["SimpleOutput", "RecRBTime", "20"],
-      ["SimpleOutput", "RecRBSize", "512"],
+      ["SimpleOutput", "RecRBTime", String(q.seconds)],
+      ["SimpleOutput", "RecRBSize", "1024"],
       ["SimpleOutput", "RecQuality", "Stream"],
       ["SimpleOutput", "RecFormat2", "hybrid_mp4"],
-      ["SimpleOutput", "VBitrate", "3000"],
+      ["SimpleOutput", "VBitrate", String(q.kbps)],
     ];
     if (encoder) params.push(["SimpleOutput", "StreamEncoder", encoder]);
     for (const [parameterCategory, parameterName, parameterValue] of params) {
@@ -249,8 +270,6 @@ export class ObsClient {
     }
 
     await this.stopReplayBuffer(); // o OBS pode ter religado o buffer ao carregar o perfil
-    const outputHeight = Math.min(720, baseH);
-    const outputWidth = Math.round((outputHeight * baseW) / baseH / 2) * 2; // largura par
     const setVideo = await this.request("SetVideoSettings", {
       baseWidth: baseW,
       baseHeight: baseH,

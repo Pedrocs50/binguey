@@ -22,6 +22,7 @@ const MESSAGES: Record<RpcError, string> = {
   rate_limited: "Muito rápido. Espere um instante e tente de novo.",
   mark_not_found: "Marcação não encontrada.",
   clips_disabled: "Esta sala não aceita clips.",
+  room_clip_budget: "A sala atingiu o limite de armazenamento de clips (400 MB). O arquivo ficou guardado só no seu computador.",
   clip_limit: "Você já enviou o máximo de clips desta partida.",
   clip_not_found: "Clip não encontrado.",
 };

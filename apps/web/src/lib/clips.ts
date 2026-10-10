@@ -3,6 +3,7 @@ import { api, BingueyError, type Mark } from "@binguey/shared";
 import { invoke } from "./desktop";
 import { obs } from "./obs";
 import { getSettings } from "./storage";
+import { errorMessage } from "./errors";
 import { supabase } from "./supabase";
 
 /**
@@ -13,7 +14,7 @@ export const POST_ROLL_MS = 500;
 const QUEUE_KEY = "binguey:clipQueue";
 const MAX_ATTEMPTS = 5;
 /** Erros do servidor que não adianta repetir: descarta o item da fila. */
-const FATAL = new Set(["clips_disabled", "mark_not_found", "clip_limit", "invalid_path", "invalid_size", "not_member"]);
+const FATAL = new Set(["room_clip_budget", "clips_disabled", "mark_not_found", "clip_limit", "invalid_path", "invalid_size", "not_member"]);
 
 interface QueueItem {
   markId: string;
@@ -128,13 +129,21 @@ async function upload(item: QueueItem): Promise<void> {
     const tu = await supabase.storage.from("clips").upload(`${base}.jpg`, thumb, { contentType: "image/jpeg", upsert: true });
     if (!tu.error) thumbPath = `${base}.jpg`;
   }
-  await api.attachClip(supabase, {
-    markId: item.markId,
-    storagePath: `${base}.mp4`,
-    bytes: video.size,
-    durationMs,
-    thumbPath,
-  });
+  try {
+    await api.attachClip(supabase, {
+      markId: item.markId,
+      storagePath: `${base}.mp4`,
+      bytes: video.size,
+      durationMs,
+      thumbPath,
+    });
+  } catch (e) {
+    // Sem espaço na sala: não deixa o arquivo órfão no servidor; o original continua no computador do jogador.
+    if (e instanceof BingueyError && e.code === "room_clip_budget") {
+      await supabase.storage.from("clips").remove([`${base}.mp4`, ...(thumbPath ? [thumbPath] : [])]).catch(() => {});
+    }
+    throw e;
+  }
 
   // Por padrão o arquivo fica no PC do jogador. Só some se ele pediu (e só na pasta dedicada do Binguey).
   if (getSettings().deleteLocalAfterUpload) await invoke("delete_clip", { path: item.path }).catch(() => {});
@@ -152,7 +161,7 @@ export async function processQueue(): Promise<void> {
         queue = queue.slice(1);
         setStatus({ uploaded: status.uploaded + 1, pending: queue.length });
       } catch (e) {
-        const message = e instanceof Error ? e.message : String(e);
+        const message = e instanceof BingueyError ? errorMessage(e) : e instanceof Error ? e.message : String(e);
         const fatal = e instanceof BingueyError && FATAL.has(e.code);
         item.attempts += 1;
         if (fatal || item.attempts >= MAX_ATTEMPTS) {

@@ -105,6 +105,13 @@ pub struct Segment {
 pub struct RenderPlan {
     segments: Vec<Segment>,
     title: String,
+    /// Altura do vídeo final: 720 ou 1080 (16:9). Padrão 720.
+    #[serde(default = "default_height")]
+    height: u32,
+}
+
+fn default_height() -> u32 {
+    720
 }
 
 #[derive(serde::Serialize)]
@@ -185,6 +192,13 @@ pub fn render_highlights(app: AppHandle, plan: RenderPlan, last: State<LastRende
     if let Some(bad) = plan.segments.iter().find(|s| !valid_url(&s.url)) {
         return Err(format!("Endereço de clip não permitido: {}", clean(&bad.url, 60)));
     }
+    if plan.height != 720 && plan.height != 1080 {
+        return Err("Resolução não permitida (use 720 ou 1080).".into());
+    }
+    let h = plan.height;
+    let w = h * 16 / 9;
+    let k = h as f64 / 720.0; // escala de fonte e margens
+    let (font_size, border, margin) = ((26.0 * k) as u32, (14.0 * k) as u32, (28.0 * k) as u32);
     let ffmpeg = locate_ffmpeg().ok_or("ffmpeg_ausente")?;
     let ffprobe = ffprobe_of(&ffmpeg);
     let (encoder, enc_args) = pick_encoder(&ffmpeg);
@@ -203,10 +217,10 @@ pub fn render_highlights(app: AppHandle, plan: RenderPlan, last: State<LastRende
         let dur = (seg.duration_ms.max(1000) as f64) / 1000.0;
         total_ms += seg.duration_ms.max(1000);
         graph.push_str(&format!(
-            "[{i}:v:0]scale=1280:720:force_original_aspect_ratio=decrease,pad=1280:720:(ow-iw)/2:(oh-ih)/2:color=black,\
+            "[{i}:v:0]scale={w}:{h}:force_original_aspect_ratio=decrease,pad={w}:{h}:(ow-iw)/2:(oh-ih)/2:color=black,\
              setsar=1,fps=30,format=yuv420p,\
-             drawtext=fontfile='{font}':textfile=cap{i}.txt:expansion=none:fontcolor=white:fontsize=26:line_spacing=6:\
-             box=1:boxcolor=black@0.55:boxborderw=14:x=28:y=h-th-28[v{i}];"
+             drawtext=fontfile='{font}':textfile=cap{i}.txt:expansion=none:fontcolor=white:fontsize={font_size}:line_spacing=6:\
+             box=1:boxcolor=black@0.55:boxborderw={border}:x={margin}:y=h-th-{margin}[v{i}];"
         ));
         if has_audio(&ffprobe, &seg.url) {
             graph.push_str(&format!("[{i}:a:0]aresample=48000,aformat=sample_fmts=fltp:channel_layouts=stereo[a{i}];"));

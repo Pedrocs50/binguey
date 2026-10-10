@@ -83,6 +83,7 @@ export const RPC_ERRORS = [
   "mark_not_found",
   "clips_disabled",
   "clip_limit",
+  "room_clip_budget",
   "clip_not_found",
 ] as const;
 

@@ -36,6 +36,10 @@ export interface Settings {
   /** Apagar o arquivo local do replay depois que o clip foi enviado. Padrão: guardar (é o seu momento). */
   deleteLocalAfterUpload: boolean;
   captureMode: CaptureMode;
+  /** Quantos segundos o clip guarda antes da marcação (o buffer do OBS). */
+  clipSeconds: 20 | 30 | 40;
+  /** Altura do vídeo dos clips e do vídeo final. */
+  clipHeight: 720 | 1080;
 }
 
 export function getSettings(): Settings {
@@ -44,11 +48,19 @@ export function getSettings(): Settings {
     return {
       deleteLocalAfterUpload: parsed.deleteLocalAfterUpload === true,
       captureMode: parsed.captureMode === "game" || parsed.captureMode === "mine" ? parsed.captureMode : "display",
+      clipSeconds: parsed.clipSeconds === 30 || parsed.clipSeconds === 40 ? parsed.clipSeconds : 20,
+      clipHeight: parsed.clipHeight === 1080 ? 1080 : 720,
     };
   } catch {
-    return { deleteLocalAfterUpload: false, captureMode: "display" };
+    return { deleteLocalAfterUpload: false, captureMode: "display", clipSeconds: 20, clipHeight: 720 };
   }
 }
+/** Taxa de bits e tamanho estimado de um clip para a qualidade escolhida (720p = 3 Mbps, 1080p = 5 Mbps). */
+export function clipQuality(st: Pick<Settings, "clipSeconds" | "clipHeight"> = getSettings()) {
+  const kbps = st.clipHeight === 1080 ? 5000 : 3000;
+  return { seconds: st.clipSeconds, height: st.clipHeight, kbps, estimatedMb: Math.round((kbps * st.clipSeconds) / 8 / 1000) };
+}
+
 export const setSettings = (s: Settings) => write("binguey:settings", JSON.stringify(s));
 
 /** Sala em que o jogador está agora; o mini-tabuleiro (outra janela) lê daqui. */

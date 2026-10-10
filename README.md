@@ -35,7 +35,7 @@
 
 ## Clips automáticos (opcional, Windows + OBS)
 
-Sem o app o bingo funciona normalmente. Com o app, **cada casa marcada salva automaticamente os últimos 20 segundos de gameplay** e o clip aparece para a sala toda. Ao final você pode montar um **vídeo com os melhores momentos**, com legenda do objetivo e de quem marcou.
+Sem o app o bingo funciona normalmente. Com o app, **cada casa marcada salva automaticamente os últimos 20 a 40 segundos de gameplay** (você escolhe) e o clip aparece para a sala toda. Ao final você pode montar um **vídeo com os melhores momentos**, com legenda do objetivo e de quem marcou.
 
 ### O que você precisa
 - Windows 10 ou 11.
@@ -51,12 +51,13 @@ Sem o app o bingo funciona normalmente. Com o app, **cada casa marcada salva aut
 ![Mini-tabuleiro que fica por cima do jogo](docs/img/06-mini-tabuleiro.png)
 
 ### O que o app faz no seu OBS (sem bagunçar o seu)
-- Cria um **perfil e uma cena chamados "Binguey"** (720p, 30 fps, buffer de 20 segundos) e **devolve o seu perfil e a sua cena** quando você desativa os clips ou fecha o app. Se você estiver transmitindo ou gravando, ele não mexe em nada.
+- Cria um **perfil e uma cena chamados "Binguey"** (30 fps, e a qualidade que você escolher) e **devolve o seu perfil e a sua cena** quando você desativa os clips ou fecha o app. Se você estiver transmitindo ou gravando, ele não mexe em nada.
+- Você escolhe a **qualidade dos clips**: 20, 30 ou 40 segundos, em 720p (uns 8 MB por clip de 20 s) ou 1080p (uns 25 MB por clip de 40 s). Clips maiores gastam mais do armazenamento gratuito da sala (limite de 400 MB por sala); o que passar disso fica só no seu computador.
 - Você escolhe **o que gravar**: *qualquer jogo* (grava o monitor principal, funciona com qualquer jogo, mas também mostra notificações e outras janelas), *só o jogo em tela cheia* (Captura de Jogo do OBS) ou *a sua própria cena*.
 - Os arquivos dos clips ficam guardados no seu computador, em **Vídeos\Binguey**, para você guardar seus momentos. Há botões para abrir a pasta e para limpar, e uma opção para apagar cada arquivo depois de enviado.
 
 ### Vídeo final
-Na sala encerrada, clique em **montar vídeo final**. O app escolhe até 10 clips (os das linhas vencedoras primeiro, depois os de todos os jogadores) e monta um vídeo de 1280×720 com legendas, **no seu computador**. Ele usa o [ffmpeg](https://ffmpeg.org); se você não tiver, o app oferece instalar pelo `winget`.
+Na sala encerrada, clique em **montar vídeo final**. O app escolhe até 10 clips (os das linhas vencedoras primeiro, depois os de todos os jogadores) e monta um vídeo com legendas, na mesma resolução dos clips (720p ou 1080p), **no seu computador**. Ele usa o [ffmpeg](https://ffmpeg.org); se você não tiver, o app oferece instalar pelo `winget`.
 
 ## Privacidade
 

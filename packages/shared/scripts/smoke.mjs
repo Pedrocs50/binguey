@@ -110,5 +110,24 @@ await A.rpc("mark_cell", { p_room: rf.id, p_idx: 8 });
 const nine = (await A.from("rooms").select("status, result").eq("id", rf.id).single()).data;
 check("cartela cheia: vence ao marcar a 9ª casa", nine?.status === "finished" && nine?.result === "won", JSON.stringify(nine));
 
+// --- trava de armazenamento por sala (migration 0010): 400 MB
+const rb = (await A.rpc("create_room", { p_size: 3, p_duration_s: 300, p_target_lines: 8, p_clip_policy: "optional" })).data;
+await B.rpc("join_room", { p_code: rb.code });
+await A.rpc("start_room", { p_room: rb.id });
+const uidA = (await A.auth.getUser()).data.user.id;
+const uidB = (await B.auth.getUser()).data.user.id;
+let budgetErr = "";
+let attached = 0;
+for (let i = 0; i < 9; i++) {
+  const who = i < 5 ? A : B;
+  const uid = i < 5 ? uidA : uidB;
+  const mk = (await who.rpc("mark_cell", { p_room: rb.id, p_idx: i })).data;
+  const r = await who.rpc("attach_clip", { p_mark: mk.id, p_storage_path: `${rb.id}/${uid}/${mk.id}.mp4`, p_bytes: 52428800, p_duration_ms: 40000 });
+  if (r.error) budgetErr = r.error.message; else attached++;
+}
+check("trava da sala: 8 clips de 50 MB (400 MB) passam", attached === 8, String(attached));
+check("trava da sala: o 9º clip é recusado (room_clip_budget)", budgetErr.includes("room_clip_budget"), budgetErr);
+await A.rpc("end_room", { p_room: rb.id });
+
 console.log(failed === 0 ? "\nTudo certo." : `\n${failed} falha(s).`);
 process.exit(failed === 0 ? 0 : 1);
