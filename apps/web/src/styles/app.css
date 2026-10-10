@@ -70,5 +70,20 @@
   .tabuleiro[data-size='4'] .casa .tags, .tabuleiro[data-size='5'] .casa .tags { display: none; }
 }
 
+.secao-compacta { margin: 1.2rem 0 0; padding: 0.6rem 0.9rem; border: 1px solid var(--linha); background: var(--superficie); }
+.secao-compacta summary { cursor: pointer; }
+.secao-compacta form { margin-top: 0.8rem; }
+
+button.link { background: none; border: 0; padding: 0; font: inherit; color: var(--texto-suave); cursor: pointer; text-decoration: underline; text-underline-offset: 3px; }
+button.link:hover { color: var(--hover); }
+
+.galeria { list-style: none; margin: 0; padding: 0; display: grid; grid-template-columns: repeat(auto-fill, minmax(12rem, 1fr)); gap: 1rem; }
+.clip { border: 1px solid var(--linha); background: var(--superficie); display: flex; flex-direction: column; }
+.clip-thumb { display: grid; place-items: center; aspect-ratio: 16 / 9; padding: 0; border: 0; border-radius: 0; background: var(--suave); color: var(--texto-suave); cursor: pointer; overflow: hidden; font-size: 1.4rem; }
+.clip-thumb:hover { color: var(--hover); }
+.clip-thumb img, .clip-video { width: 100%; height: 100%; object-fit: cover; display: block; }
+.clip-video { aspect-ratio: 16 / 9; background: #000; }
+.clip-info { display: flex; flex-direction: column; gap: 0.2rem; padding: 0.55rem 0.65rem; font-size: 0.85rem; line-height: 1.35; }
+
 .resultado { border: 1px solid var(--linha); padding: 1.1rem 1.2rem; margin-bottom: 1.5rem; background: var(--superficie); }
 .resultado h2 { margin-bottom: 0.3rem; }

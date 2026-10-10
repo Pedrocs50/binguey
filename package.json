@@ -6,6 +6,7 @@
   "engines": { "node": ">=20" },
   "scripts": {
     "dev": "pnpm --filter @binguey/web dev",
+    "desktop": "pnpm --filter @binguey/desktop tauri dev",
     "build": "pnpm -r build",
     "test": "pnpm -r test",
     "typecheck": "pnpm -r typecheck"

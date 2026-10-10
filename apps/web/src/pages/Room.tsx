@@ -1,9 +1,14 @@
 import { useEffect, useMemo, useState } from "react";
 import { api, completedLines, inviteUrl } from "@binguey/shared";
 import { Board } from "../components/Board";
+import { ClipGallery } from "../components/ClipGallery";
 import { Link } from "../components/Link";
+import { ObsPanel } from "../components/ObsPanel";
 import { Relogio } from "../components/Relogio";
 import { useRoom, type RoomData } from "../hooks/useRoom";
+import { captureClip, resumeQueue } from "../lib/clips";
+import { isDesktop } from "../lib/desktop";
+import { getObsState } from "../lib/obsStore";
 import { errorMessage } from "../lib/errors";
 import { navigate } from "../lib/router";
 import { rememberRoom } from "../lib/storage";
@@ -15,6 +20,10 @@ export function RoomPage({ code }: { code: string }) {
   useEffect(() => {
     if (phase === "ready") rememberRoom(code);
   }, [phase, code]);
+
+  useEffect(() => {
+    if (isDesktop()) resumeQueue(); // reenvia clips que ficaram pendentes de uma sessão anterior
+  }, []);
 
   if (phase === "loading") return <p className="rotulo">carregando sala…</p>;
   if (phase === "error")
@@ -35,6 +44,15 @@ export function RoomPage({ code }: { code: string }) {
     );
 
   const { room } = data;
+
+  // A marcação e o clip correm em paralelo: o clip só segue se a marcação valer.
+  function handleMark(idx: number) {
+    const mark = markCell(idx);
+    if (isDesktop() && room.clip_policy !== "off" && getObsState().phase === "ready") {
+      void captureClip({ roomId: room.id, userId: me!, mark });
+    }
+  }
+
   return (
     <>
       <div className="sala-topo">
@@ -53,8 +71,8 @@ export function RoomPage({ code }: { code: string }) {
       )}
 
       {room.status === "lobby" && <Lobby data={data} me={me} />}
-      {room.status === "running" && <Play data={data} onMark={(i) => void markCell(i)} />}
-      {(room.status === "finished" || room.status === "expired") && <Finished data={data} />}
+      {room.status === "running" && <Play data={data} me={me} onMark={handleMark} />}
+      {(room.status === "finished" || room.status === "expired") && <Finished data={data} me={me} />}
     </>
   );
 }
@@ -128,6 +146,8 @@ function Lobby({ data, me }: { data: RoomData; me: string }) {
         </button>
       </section>
 
+      <ObsPanel roomId={room.id} policy={room.clip_policy} />
+
       <section className="secao">
         <h2>na sala ({members.length})</h2>
         <ul className="lista">
@@ -187,8 +207,8 @@ function Lobby({ data, me }: { data: RoomData; me: string }) {
   );
 }
 
-function Play({ data, onMark }: { data: RoomData; onMark: (idx: number) => void }) {
-  const { room, cells, marks, nicknames } = data;
+function Play({ data, me, onMark }: { data: RoomData; me: string; onMark: (idx: number) => void }) {
+  const { room, cells, marks, nicknames, clips } = data;
   const lines = completedLines(room.size, marks.map((m) => m.cell_idx)).length;
   return (
     <>
@@ -196,12 +216,14 @@ function Play({ data, onMark }: { data: RoomData; onMark: (idx: number) => void 
         linhas: {lines}/{room.target_lines} · casas marcadas: {marks.length}/{cells.length}
       </p>
       <Board size={room.size} cells={cells} marks={marks} nicknames={nicknames} canMark onMark={onMark} />
+      <ObsPanel roomId={room.id} policy={room.clip_policy} compact />
+      <ClipGallery clips={clips} cells={cells} marks={marks} nicknames={nicknames} me={me} />
     </>
   );
 }
 
-function Finished({ data }: { data: RoomData }) {
-  const { room, cells, marks, nicknames } = data;
+function Finished({ data, me }: { data: RoomData; me: string }) {
+  const { room, cells, marks, nicknames, clips } = data;
   const lines = completedLines(room.size, marks.map((m) => m.cell_idx)).length;
   const ranking = useMemo(() => {
     const count = new Map<string, number>();
@@ -225,6 +247,8 @@ function Finished({ data }: { data: RoomData }) {
       </div>
 
       <Board size={room.size} cells={cells} marks={marks} nicknames={nicknames} canMark={false} onMark={() => {}} />
+
+      <ClipGallery clips={clips} cells={cells} marks={marks} nicknames={nicknames} me={me} />
 
       <section className="secao">
         <h2>quem marcou</h2>

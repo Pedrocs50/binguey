@@ -88,6 +88,29 @@ Pendências do S1:
   o dobro dos 7,5 MB previstos). Plano: o assistente cria um **perfil do OBS dedicado** ao Binguey
   (720p, 3 Mbps) por WebSocket, sem tocar no perfil normal do usuário. A validar no S1b.
 
+## Fase 2 — app e clips (implementada em 10/10/2026)
+
+Teste ponta a ponta automático no app Tauri com o OBS real (`apps/desktop/README.md`):
+
+| Critério | Resultado |
+| --- | --- |
+| Clip visível na sala ≤ 10 s após a marcação | **3,96 s** (inclui 2 s de pós-roll) |
+| Clip de 15,5 s, 11,4 MB, miniatura gerada | ok |
+| Download pelo Storage com URL assinada (privado) | ok (HTTP 206, MP4 válido) |
+| Marcação perdida ("alguém marcou primeiro") não gera clip | ok |
+| `clips_active` na sala | **pendente**: exige aplicar `supabase/migrations/20261010000500_clips_active.sql` |
+
+Ainda **não testado**: jogo real em tela cheia (S3), conexão de internet caindo no meio do envio
+(fila existe, mas não foi forçada a falhar), mais de um jogador com clips ao mesmo tempo, vídeo final
+(Fase 3), instalador/atualização/assinatura (Fase 3).
+
+Decisões tomadas:
+- O app **não apaga** os arquivos que o OBS grava; eles se acumulam na pasta de gravação. Solução
+  prevista: o perfil dedicado do S1b grava numa pasta temporária própria.
+- O app é uma identidade nova (login anônimo próprio, outro armazenamento que o navegador): é a opção
+  (a) da seção "Pontos que precisam de decisão". A (b), `claim_device`, fica para a Fase 3.
+- CSP do app libera apenas `self`, `ws://127.0.0.1:4455` e `*.supabase.co` (https/wss).
+
 ## Próximos passos
 
 1. Criar projeto Supabase **dev** em São Paulo e aplicar as migrations (`supabase db push`);

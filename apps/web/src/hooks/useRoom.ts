@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useRef, useState } from "react";
-import { api, type Cell, type Mark, type Room, type RoomMember } from "@binguey/shared";
+import { api, type Cell, type Clip, type Mark, type Room, type RoomMember } from "@binguey/shared";
 import { errorMessage } from "../lib/errors";
 import { supabase } from "../lib/supabase";
 
@@ -9,6 +9,7 @@ export interface RoomData {
   nicknames: Record<string, string>;
   cells: Cell[];
   marks: Mark[];
+  clips: Clip[];
 }
 
 export type Phase = "loading" | "ready" | "notfound" | "error";
@@ -38,12 +39,13 @@ export function useRoom(code: string) {
     if (!r.data) return setPhase("notfound"); // não existe ou o usuário não é membro (RLS)
     const room = r.data as Room;
 
-    const [m, c, k] = await Promise.all([
+    const [m, c, k, cl] = await Promise.all([
       supabase.from("room_members").select("*").eq("room_id", room.id),
       supabase.from("cells").select("*").eq("room_id", room.id).order("idx"),
       supabase.from("marks").select("*").eq("room_id", room.id),
+      supabase.from("clips").select("*").eq("room_id", room.id).order("expires_at"),
     ]);
-    if (m.error || c.error || k.error) return setPhase("error");
+    if (m.error || c.error || k.error || cl.error) return setPhase("error");
     const members = m.data as RoomMember[];
 
     const p = await supabase
@@ -54,7 +56,14 @@ export function useRoom(code: string) {
     for (const row of (p.data ?? []) as { id: string; nickname: string }[]) nicknames[row.id] = row.nickname;
 
     setRoomId(room.id);
-    setData({ room, members, nicknames, cells: c.data as Cell[], marks: k.data as Mark[] });
+    // Mantém marcações otimistas ainda em voo (id "tmp-"): o instantâneo não as conhece.
+    setData((prev) => {
+      const fresh = k.data as Mark[];
+      const inFlight = (prev?.marks ?? []).filter(
+        (x) => x.id.startsWith("tmp-") && !fresh.some((f) => f.cell_idx === x.cell_idx),
+      );
+      return { room, members, nicknames, cells: c.data as Cell[], marks: [...fresh, ...inFlight], clips: cl.data as Clip[] };
+    });
     setPhase("ready");
   }, [code]);
 
@@ -98,6 +107,9 @@ export function useRoom(code: string) {
         { event: "*", schema: "public", table: "room_members", filter: `room_id=eq.${roomId}` },
         () => void loadRef.current(),
       )
+      .on("postgres_changes", { event: "*", schema: "public", table: "clips", filter: `room_id=eq.${roomId}` }, () =>
+        void loadRef.current(),
+      )
       // Ao (re)conectar, recarrega: cobre o intervalo em que o canal esteve fora.
       .subscribe((status) => {
         if (status === "SUBSCRIBED") void loadRef.current();
@@ -108,8 +120,8 @@ export function useRoom(code: string) {
   }, [roomId]);
 
   const markCell = useCallback(
-    async (idx: number) => {
-      if (!data || !me) return;
+    async (idx: number): Promise<Mark | null> => {
+      if (!data || !me) return null;
       const tmpId = `tmp-${idx}`;
       const optimistic: Mark = {
         id: tmpId,
@@ -123,10 +135,12 @@ export function useRoom(code: string) {
       try {
         const mark = await api.markCell(supabase, data.room.id, idx);
         setData((d) => d && { ...d, marks: [...d.marks.filter((x) => x.cell_idx !== idx), mark] });
+        return mark;
       } catch (e) {
         setData((d) => d && { ...d, marks: d.marks.filter((x) => x.id !== tmpId) });
         setNotice(errorMessage(e));
         void loadRef.current(); // mostra quem marcou primeiro / o estado real da sala
+        return null;
       }
     },
     [data, me],

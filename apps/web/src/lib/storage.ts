@@ -18,6 +18,10 @@ function write(key: string, value: string) {
 export const getNickname = () => read("binguey:nick") ?? "";
 export const setNickname = (n: string) => write("binguey:nick", n);
 
+// Senha do WebSocket do OBS: fica só neste computador e nunca é enviada ao servidor.
+export const getObsPassword = () => read("binguey:obs-pass") ?? "";
+export const setObsPassword = (p: string) => write("binguey:obs-pass", p);
+
 export interface RecentRoom {
   code: string;
   at: number;

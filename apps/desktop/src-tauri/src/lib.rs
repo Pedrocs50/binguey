@@ -51,34 +51,34 @@ fn read_clip(path: String, state: State<RecordDir>) -> Result<Response, String> 
     fs::read(&file).map(Response::new).map_err(|e| e.to_string())
 }
 
-// ---- Auxiliares só do spike (desligados em release) ------------------------------------------
+// ---- Auxiliares de desenvolvimento (desligados em release) ------------------------------------------
 
 #[derive(serde::Serialize)]
-struct SpikeConfig {
+struct DevConfig {
     password: String,
     auto: bool,
 }
 
 /// Senha do OBS e modo automático vêm de variáveis de ambiente, somente em debug.
 #[tauri::command]
-fn spike_config() -> SpikeConfig {
+fn dev_config() -> DevConfig {
     if cfg!(debug_assertions) {
-        SpikeConfig {
+        DevConfig {
             password: std::env::var("OBS_PASSWORD").unwrap_or_default(),
-            auto: std::env::var("BINGUEY_SPIKE_AUTO").is_ok(),
+            auto: std::env::var("BINGUEY_AUTOTEST").is_ok(),
         }
     } else {
-        SpikeConfig { password: String::new(), auto: false }
+        DevConfig { password: String::new(), auto: false }
     }
 }
 
-/// Acrescenta uma linha ao arquivo indicado por BINGUEY_SPIKE_OUT (só em debug).
+/// Acrescenta uma linha ao arquivo indicado por BINGUEY_AUTOTEST_OUT (só em debug).
 #[tauri::command]
-fn spike_report(line: String) {
+fn dev_report(line: String) {
     if !cfg!(debug_assertions) {
         return;
     }
-    if let Ok(out) = std::env::var("BINGUEY_SPIKE_OUT") {
+    if let Ok(out) = std::env::var("BINGUEY_AUTOTEST_OUT") {
         if let Ok(mut f) = fs::OpenOptions::new().create(true).append(true).open(out) {
             let _ = writeln!(f, "{line}");
         }
@@ -86,7 +86,7 @@ fn spike_report(line: String) {
 }
 
 #[tauri::command]
-fn spike_exit(app: AppHandle) {
+fn dev_exit(app: AppHandle) {
     if cfg!(debug_assertions) {
         app.exit(0);
     }
@@ -98,9 +98,9 @@ pub fn run() {
         .invoke_handler(tauri::generate_handler![
             set_record_dir,
             read_clip,
-            spike_config,
-            spike_report,
-            spike_exit
+            dev_config,
+            dev_report,
+            dev_exit
         ])
         .run(tauri::generate_context!())
         .expect("erro ao iniciar o app Binguey");

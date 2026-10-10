@@ -68,5 +68,9 @@ export const api = {
       p_duration_ms: a.durationMs,
       p_thumb_path: a.thumbPath ?? null,
     }),
+  setClipsActive: (c: BingueyClient, room: string, active: boolean) =>
+    rpc<void>(c, "set_clips_active", { p_room: room, p_active: active }),
+  /** Apaga a linha do clip e devolve o caminho do objeto, que o chamador remove do Storage. */
+  deleteMyClip: (c: BingueyClient, clip: string) => rpc<string>(c, "delete_my_clip", { p_clip: clip }),
   serverTime: (c: BingueyClient) => rpc<string>(c, "server_time"),
 };
