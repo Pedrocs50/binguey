@@ -58,9 +58,9 @@ const SET = `function setVal(el, v) { const p = el.tagName === 'SELECT' ? HTMLSe
   function field(label) { return [...document.querySelectorAll('label.campo')].find((l) => l.textContent.includes(label)).querySelector('input,select'); }
   function btn(text) { return [...document.querySelectorAll('button')].find((b) => b.textContent.trim() === text); }`;
 
-async function createRoom(nick, size, lines) {
+async function createRoom(nick, size, lines, mode = "lines") {
   await nav(SITE);
-  await ev(`(() => { ${SET} setVal(field('seu apelido'), ${JSON.stringify(nick)}); setVal(field('tabuleiro'), '${size}'); setVal(field('linhas para vencer'), '${lines}'); return true; })()`);
+  await ev(`(() => { ${SET} setVal(field('seu apelido'), ${JSON.stringify(nick)}); setVal(field('tabuleiro'), '${size}'); if ('${mode}' === 'full') setVal(field('como vencer'), 'full'); else setVal(field('linhas para vencer'), '${lines}'); return true; })()`);
   await sleep(300);
   await ev(`(() => { ${SET} btn('criar sala').click(); return true; })()`);
   await waitFor(`location.pathname.startsWith('/r/')`, 20000, "sala criada");
@@ -121,7 +121,11 @@ try {
   await waitFor(`document.body.innerText.includes('vitória')`, 20000, "vitória");
   await sleep(1200);
   await shot("05-vitoria.png", 900);
-  console.log("salas usadas:", code, code2);
+  // modo cartela cheia: cria a sala e confere o texto do modo
+  const code3 = await createRoom("Ana", 3, 1, "full");
+  const lobbyText = await ev("document.body.innerText");
+  console.log("cartela cheia na sala:", lobbyText.includes("vence com a cartela cheia") ? "OK" : "FALHOU");
+  console.log("salas usadas:", code, code2, code3);
 } finally {
   try { ws.close(); } catch {}
   edge.kill();
