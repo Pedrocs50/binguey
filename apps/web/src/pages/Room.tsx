@@ -109,6 +109,7 @@ function Lobby({ data, me }: { data: RoomData; me: string }) {
   const [copied, setCopied] = useState(false);
   const [games, setGames] = useState<{ slug: string; name: string }[]>([]);
   const [picked, setPicked] = useState<string[]>([]);
+  const [gameQuery, setGameQuery] = useState("");
   const [custom, setCustom] = useState("");
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -191,19 +192,32 @@ function Lobby({ data, me }: { data: RoomData; me: string }) {
             </div>
           )}
           {games.length > 0 && (
-            <fieldset style={{ border: 0, padding: 0, margin: "0 0 1rem" }}>
-              <legend className="rotulo">objetivos extras de jogos específicos (opcional)</legend>
-              {games.map((g) => (
-                <label key={g.slug} className="mono" style={{ display: "inline-block", marginRight: "1rem" }}>
-                  <input
-                    type="checkbox"
-                    checked={picked.includes(g.slug)}
-                    onChange={(e) => setPicked((p) => (e.target.checked ? [...p, g.slug] : p.filter((s) => s !== g.slug)))}
-                  />{" "}
-                  {g.name}
-                </label>
-              ))}
-            </fieldset>
+            <div className="campo">
+              <span className="rotulo">
+                objetivos extras de jogos específicos (opcional){picked.length > 0 ? ` · ${picked.length} escolhidos` : ""}
+              </span>
+              <input
+                type="search"
+                value={gameQuery}
+                onChange={(e) => setGameQuery(e.target.value)}
+                placeholder={`buscar entre ${games.length} jogos…`}
+                aria-label="Buscar jogo"
+              />
+              <div className="lista-jogos">
+                {games
+                  .filter((g) => picked.includes(g.slug) || g.name.toLowerCase().includes(gameQuery.trim().toLowerCase()))
+                  .map((g) => (
+                    <label key={g.slug} className="mono">
+                      <input
+                        type="checkbox"
+                        checked={picked.includes(g.slug)}
+                        onChange={(e) => setPicked((p) => (e.target.checked ? [...p, g.slug] : p.filter((s) => s !== g.slug)))}
+                      />{" "}
+                      {g.name}
+                    </label>
+                  ))}
+              </div>
+            </div>
           )}
           <label className="campo">
             <span className="rotulo">objetivos próprios (um por linha, opcional)</span>

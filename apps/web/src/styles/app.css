@@ -74,6 +74,7 @@
 .secao-compacta summary { cursor: pointer; }
 .secao-compacta form { margin-top: 0.8rem; }
 
+.lista-jogos { margin-top: 0.4rem; max-height: 12rem; overflow-y: auto; border: 1px solid var(--linha); background: var(--superficie); padding: 0.4rem 0.7rem; display: grid; grid-template-columns: repeat(auto-fill, minmax(13rem, 1fr)); gap: 0.15rem 1rem; }
 .modos { border: 0; padding: 0; margin: 1rem 0 0; }
 .modos label { display: block; margin: 0.25rem 0; }
 

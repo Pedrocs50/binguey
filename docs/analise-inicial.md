@@ -124,8 +124,10 @@ Decisões tomadas:
 
 O bingo é para **cumprir os objetivos em qualquer jogo**; o jogador abre e fecha jogos durante a partida.
 Consequências já implementadas:
-- **Biblioteca**: ~75 objetivos genéricos (servem para qualquer jogo, incluindo "jogar um jogo que nunca abriu"
-  e "voltar a um jogo de hoje") + extras de 15 jogos. Migration `0007_goal_library.sql` (idempotente).
+- **Biblioteca** (pesquisada em 10/10/2026: jogos mais jogados no Steam e mais assistidos na Twitch, mais o
+  que se vê num clip de 20 s): **219 objetivos genéricos** + **584 específicos de 67 jogos**. A fonte é
+  `supabase/goals/library.mjs`; `node supabase/goals/build.mjs` valida e gera o `supabase/seed.sql`
+  (idempotente: cria, atualiza e remove objetivos do sistema; nunca toca nos de usuários).
 - **Sorteio**: sem escolher jogos, o tabuleiro usa **só** objetivos genéricos; jogos específicos são extra
   opcional do anfitrião (antes, "vazio = todos" misturava Minecraft com Elden Ring).
 - **Captura**: o app monta no OBS uma coleção de cenas "Binguey" com uma fonte que acompanha qualquer jogo:
