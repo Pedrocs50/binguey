@@ -52,6 +52,7 @@ Sem o app o bingo funciona normalmente. Com o app, **cada casa marcada salva aut
 
 ### O que o app faz no seu OBS (sem bagunçar o seu)
 - Cria um **perfil e uma cena chamados "Binguey"** (30 fps, e a qualidade que você escolher) e **devolve o seu perfil e a sua cena** quando você desativa os clips ou fecha o app. Se você estiver transmitindo ou gravando, ele não mexe em nada.
+- **Áudio:** o som do jogo é sempre gravado; o seu **microfone só entra se você marcar** a opção no painel de clips (desligado por padrão, por privacidade).
 - Você escolhe a **qualidade dos clips**: 20, 30 ou 40 segundos, em 720p (uns 8 MB por clip de 20 s) ou 1080p (uns 25 MB por clip de 40 s). Clips maiores gastam mais do armazenamento gratuito da sala (limite de 400 MB por sala); o que passar disso fica só no seu computador.
 - Você escolhe **o que gravar**: *qualquer jogo* (grava o monitor principal, funciona com qualquer jogo, mas também mostra notificações e outras janelas), *só o jogo em tela cheia* (Captura de Jogo do OBS) ou *a sua própria cena*.
 - Os arquivos dos clips ficam guardados no seu computador, em **Vídeos\Binguey**, para você guardar seus momentos. Há botões para abrir a pasta e para limpar, e uma opção para apagar cada arquivo depois de enviado.

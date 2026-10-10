@@ -18,6 +18,23 @@ interface DevConfig {
 
 const sleep = (ms: number) => new Promise((r) => setTimeout(r, ms));
 
+/** Toca um tom pelo dispositivo de saída padrão: o OBS deve capturá-lo no clip (prova de que o áudio entra). */
+function beep(seconds = 1.2) {
+  try {
+    const ctx = new AudioContext();
+    const osc = ctx.createOscillator();
+    const gain = ctx.createGain();
+    gain.gain.value = 0.35;
+    osc.frequency.value = 660;
+    osc.connect(gain).connect(ctx.destination);
+    osc.start();
+    osc.stop(ctx.currentTime + seconds);
+    setTimeout(() => void ctx.close(), (seconds + 0.5) * 1000);
+  } catch {
+    /* sem WebAudio: o teste de volume vai acusar */
+  }
+}
+
 export async function maybeRunDevAuto(): Promise<void> {
   const cfg = await invoke<DevConfig>("dev_config").catch(() => null);
   if (!cfg?.auto) return;
@@ -151,6 +168,8 @@ async function videoTest(report: (line: string) => void, me: string): Promise<vo
 
   const t0 = performance.now();
   for (let i = 0; i < 10; i++) {
+    beep(); // som no meio da gravação: tem que aparecer no clip
+    await sleep(300);
     const mark = api.markCell(supabase, room.id, i).catch(() => null);
     void captureClip({ roomId: room.id, userId: me, mark });
     await sleep(2500);
@@ -180,9 +199,9 @@ async function videoTest(report: (line: string) => void, me: string): Promise<vo
   const res = await renderHighlights(src, (p) => (lastPct = p), 10);
   const expect = clips.reduce((n, c) => n + (c.duration_ms ?? 0), 0) / 1000;
   report(
-    `E2E.13 ${res.seconds < 120 && res.duration_s > expect * 0.9 && res.black_ratio < 0.5 ? "PASS" : "FAIL"}  vídeo final de ${res.duration_s.toFixed(1)} s ` +
+    `E2E.13 ${res.seconds < 120 && res.duration_s > expect * 0.9 && res.black_ratio < 0.5 && res.clips_with_audio === res.clips_total && (res.max_volume_db ?? -99) > -40 ? "PASS" : "FAIL"}  vídeo final de ${res.duration_s.toFixed(1)} s ` +
       `(clips somam ${expect.toFixed(1)} s) montado em ${res.seconds.toFixed(1)} s com ${res.encoder}, ${(res.bytes / 1024 / 1024).toFixed(1)} MB (S6 < 120 s); ` +
-      `preto: ${(res.black_ratio * 100).toFixed(0)}% do vídeo; último progresso ${lastPct}%`,
+      `preto: ${(res.black_ratio * 100).toFixed(0)}% do vídeo; com faixa de áudio: ${res.clips_with_audio}/${res.clips_total} clips; volume de pico ${res.max_volume_db ?? "?"} dB (silêncio ≈ -91); último progresso ${lastPct}%`,
   );
   report(`  arquivo: ${res.path}`);
   await api.endRoom(supabase, room.id).catch(() => {});
@@ -195,13 +214,15 @@ async function qualityTest(report: (line: string) => void, me: string, password:
   save({ clipSeconds: 40, clipHeight: 1080 });
   await connectObs(password, {});
   const setup = await obs.describeSetup();
-  const ok = /saída=1920x1080@/.test(setup) && /bitrate=5000/.test(setup) && /buffer=40s/.test(setup);
+  const ok = /saída=1920x1080@/.test(setup) && /bitrate=5000/.test(setup) && /buffer=40s/.test(setup) && /wasapi_output_capture/.test(setup);
   report(`E2E.14 ${ok ? "PASS" : "FAIL"}  qualidade alta no OBS: ${setup}`);
 
   const room = await createRoomAs("AutoTester", { size: 3, durationS: 900, targetLines: 8, clipPolicy: "optional" });
   await api.startRoom(supabase, room.id);
   report("E2E.15  esperando 45 s para o buffer de 40 s encher...");
   await sleep(45000);
+  beep(2);
+  await sleep(600);
   const t0 = performance.now();
   const mark = api.markCell(supabase, room.id, 0).catch(() => null);
   void captureClip({ roomId: room.id, userId: me, mark });
@@ -224,7 +245,7 @@ async function qualityTest(report: (line: string) => void, me: string, password:
       () => {},
       10,
     );
-    report(`E2E.16 ${res.black_ratio < 0.5 && res.duration_s > secs * 0.9 ? "PASS" : "FAIL"}  vídeo final em 1080p de ${res.duration_s.toFixed(1)} s, ${(res.bytes / 1024 / 1024).toFixed(1)} MB, montado em ${res.seconds.toFixed(1)} s, preto ${(res.black_ratio * 100).toFixed(0)}%`);
+    report(`E2E.16 ${res.black_ratio < 0.5 && res.duration_s > secs * 0.9 && (res.max_volume_db ?? -99) > -40 ? "PASS" : "FAIL"}  vídeo final em 1080p de ${res.duration_s.toFixed(1)} s, volume de pico ${res.max_volume_db ?? "?"} dB, ${(res.bytes / 1024 / 1024).toFixed(1)} MB, montado em ${res.seconds.toFixed(1)} s, preto ${(res.black_ratio * 100).toFixed(0)}%`);
   }
   await api.endRoom(supabase, room.id).catch(() => {});
   save({ clipSeconds: 20, clipHeight: 720 });

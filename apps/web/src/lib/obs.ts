@@ -25,6 +25,8 @@ const PREV_PROFILE_KEY = "binguey:obs-prev-profile";
 export const COLLECTION = "Binguey";
 const PREV_COLLECTION_KEY = "binguey:obs-prev-collection";
 /** Uma fonte por modo; trocar de modo só liga uma e desliga a outra (o OBS demora a liberar nomes removidos). */
+const AUDIO_DESKTOP = "Binguey: som do jogo";
+const AUDIO_MIC = "Binguey: microfone";
 const CAPTURE_SOURCES: Record<Exclude<CaptureMode, "mine">, { name: string; kind: string }> = {
   display: { name: "Binguey: monitor", kind: "monitor_capture" },
   game: { name: "Binguey: jogo", kind: "game_capture" },
@@ -308,7 +310,7 @@ export class ObsClient {
    * que o jogador abrir ou fechar (monitor principal, ou Captura de Jogo em "qualquer aplicativo em tela
    * cheia"). No modo "mine" não cria nada e devolve a coleção do jogador, se estava em outra.
    */
-  async useBingueyScene(mode: CaptureMode): Promise<void> {
+  private async setupCaptureScene(mode: CaptureMode): Promise<void> {
     if (mode === "mine") return this.restoreCollection();
 
     const list = await this.mustOk("GetSceneCollectionList");
@@ -337,7 +339,7 @@ export class ObsClient {
     // e liga (criando, se preciso) a do modo.
     const want = CAPTURE_SOURCES[mode];
     for (const item of list2) {
-      if (item.sourceName.startsWith("Binguey: ") && item.sourceName !== want.name) {
+      if (item.sourceName.startsWith("Binguey: ") && item.sourceName !== want.name && item.sourceName !== AUDIO_DESKTOP && item.sourceName !== AUDIO_MIC) {
         await setEnabled(item.sceneItemId, false);
       }
     }
@@ -371,6 +373,45 @@ export class ObsClient {
         boundsHeight: Number(video.data.baseHeight),
       },
     });
+  }
+
+  /** Monta a cena do Binguey (captura + áudio). No modo "mine" só devolve a coleção do jogador. */
+  async useBingueyScene(mode: CaptureMode): Promise<void> {
+    if (mode === "mine") return this.restoreCollection();
+    await this.setupCaptureScene(mode);
+    await this.ensureAudio(getSettings().micInClips);
+  }
+
+  /**
+   * O OBS guarda o áudio global (som do desktop e microfone) DENTRO de cada coleção de cenas: uma coleção nova
+   * nasce sem áudio e os clips saem mudos. Cria o som do desktop (sempre) e o microfone (só se o jogador quiser).
+   */
+  private async ensureAudio(mic: boolean): Promise<void> {
+    const inputs = await this.request("GetInputList");
+    const known = new Set(((inputs.data.inputs ?? []) as { inputName: string }[]).map((i) => i.inputName));
+    const items = await this.request("GetSceneItemList", { sceneName: COLLECTION });
+    const inScene = new Set(((items.data.sceneItems ?? []) as { sourceName: string }[]).map((i) => i.sourceName));
+
+    const ensure = async (name: string, kind: string) => {
+      if (!known.has(name)) {
+        await this.mustOk("CreateInput", { sceneName: COLLECTION, inputName: name, inputKind: kind, inputSettings: { device_id: "default" }, sceneItemEnabled: true });
+      } else if (!inScene.has(name)) {
+        await this.mustOk("CreateSceneItem", { sceneName: COLLECTION, sourceName: name, sceneItemEnabled: true });
+      }
+    };
+    await ensure(AUDIO_DESKTOP, "wasapi_output_capture");
+    if (mic || known.has(AUDIO_MIC)) await ensure(AUDIO_MIC, "wasapi_input_capture");
+
+    // Um item de cena DESLIGADO deixa a fonte inativa e o OBS não mistura o áudio dela: garante que está ligado.
+    const after = await this.request("GetSceneItemList", { sceneName: COLLECTION });
+    for (const it of (after.data.sceneItems ?? []) as { sourceName: string; sceneItemId: number }[]) {
+      if (it.sourceName === AUDIO_DESKTOP || it.sourceName === AUDIO_MIC) {
+        const wanted = it.sourceName === AUDIO_DESKTOP ? true : mic;
+        await this.request("SetSceneItemEnabled", { sceneName: COLLECTION, sceneItemId: it.sceneItemId, sceneItemEnabled: wanted });
+      }
+    }
+    await this.request("SetInputMute", { inputName: AUDIO_DESKTOP, inputMuted: false });
+    if (mic || known.has(AUDIO_MIC)) await this.request("SetInputMute", { inputName: AUDIO_MIC, inputMuted: !mic });
   }
 
   /**

@@ -123,6 +123,11 @@ pub struct RenderResult {
     duration_s: f64,
     /// Fração do vídeo que está preta (0..1). Perto de 1 = a captura do OBS não pegou imagem.
     black_ratio: f64,
+    /// Quantos dos clips usados tinham trilha de áudio (e o total).
+    clips_with_audio: usize,
+    clips_total: usize,
+    /// Volume de pico do vídeo final em dB (cerca de -91 = silêncio total). Nulo se não deu para medir.
+    max_volume_db: Option<f64>,
 }
 
 fn valid_url(url: &str) -> bool {
@@ -210,6 +215,7 @@ pub fn render_highlights(app: AppHandle, plan: RenderPlan, last: State<LastRende
     // Um arquivo de legenda por clip (evita escapar texto do usuário dentro do filtro).
     let mut graph = String::new();
     let mut concat_inputs = String::new();
+    let mut clips_with_audio = 0usize;
     let mut total_ms: u64 = 0;
     for (i, seg) in plan.segments.iter().enumerate() {
         let caption = format!("{}\n{}", clean(&seg.line1, 90), clean(&seg.line2, 60));
@@ -223,6 +229,7 @@ pub fn render_highlights(app: AppHandle, plan: RenderPlan, last: State<LastRende
              box=1:boxcolor=black@0.55:boxborderw={border}:x={margin}:y=h-th-{margin}[v{i}];"
         ));
         if has_audio(&ffprobe, &seg.url) {
+            clips_with_audio += 1;
             graph.push_str(&format!("[{i}:a:0]aresample=48000,aformat=sample_fmts=fltp:channel_layouts=stereo[a{i}];"));
         } else {
             graph.push_str(&format!("anullsrc=r=48000:cl=stereo,atrim=duration={dur:.3}[a{i}];"));
@@ -306,6 +313,16 @@ pub fn render_highlights(app: AppHandle, plan: RenderPlan, last: State<LastRende
             if duration_s > 0.0 { (black / duration_s).clamp(0.0, 1.0) } else { 0.0 }
         })
         .unwrap_or(0.0);
+    // Mede o volume: uma faixa de áudio existe mesmo quando o OBS grava só silêncio.
+    let mut vd = Command::new(&ffmpeg);
+    quiet(&mut vd)
+        .args(["-hide_banner", "-v", "info", "-i"])
+        .arg(&out)
+        .args(["-vn", "-af", "volumedetect", "-f", "null", "-"]);
+    let max_volume_db = vd.output().ok().and_then(|o| {
+        let text = String::from_utf8_lossy(&o.stderr).to_string();
+        text.split("max_volume:").nth(1).and_then(|p| p.split_whitespace().next()).and_then(|n| n.parse::<f64>().ok())
+    });
     *last.0.lock().unwrap() = Some(out.clone());
     let _ = app.emit("binguey-render-progress", 100u32);
     Ok(RenderResult {
@@ -315,6 +332,9 @@ pub fn render_highlights(app: AppHandle, plan: RenderPlan, last: State<LastRende
         encoder,
         duration_s,
         black_ratio,
+        clips_with_audio,
+        clips_total: plan.segments.len(),
+        max_volume_db,
     })
 }
 

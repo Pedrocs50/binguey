@@ -107,6 +107,12 @@ export function HighlightsPanel({ source }: { source: VideoSource }) {
               “o que gravar”) e grave de novo.
             </div>
           )}
+          {result.max_volume_db !== null && result.max_volume_db < -60 && (
+            <div className="aviso erro">
+              O vídeo saiu sem som. No OBS, confira se o som do desktop está sendo capturado (no painel de clips o app cria a fonte
+              de áudio sozinho; reconecte o OBS e grave de novo).
+            </div>
+          )}
           <div className="acoes">
             <button className="botao" type="button" onClick={() => void revealRender()}>
               mostrar no Explorer

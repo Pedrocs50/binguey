@@ -40,6 +40,8 @@ export interface Settings {
   clipSeconds: 20 | 30 | 40;
   /** Altura do vídeo dos clips e do vídeo final. */
   clipHeight: 720 | 1080;
+  /** Gravar também o microfone nos clips. Padrão: desligado (o som do jogo sempre vai). */
+  micInClips: boolean;
 }
 
 export function getSettings(): Settings {
@@ -50,9 +52,10 @@ export function getSettings(): Settings {
       captureMode: parsed.captureMode === "game" || parsed.captureMode === "mine" ? parsed.captureMode : "display",
       clipSeconds: parsed.clipSeconds === 30 || parsed.clipSeconds === 40 ? parsed.clipSeconds : 20,
       clipHeight: parsed.clipHeight === 1080 ? 1080 : 720,
+      micInClips: parsed.micInClips === true,
     };
   } catch {
-    return { deleteLocalAfterUpload: false, captureMode: "display", clipSeconds: 20, clipHeight: 720 };
+    return { deleteLocalAfterUpload: false, captureMode: "display", clipSeconds: 20, clipHeight: 720, micInClips: false };
   }
 }
 /** Taxa de bits e tamanho estimado de um clip para a qualidade escolhida (720p = 3 Mbps, 1080p = 5 Mbps). */

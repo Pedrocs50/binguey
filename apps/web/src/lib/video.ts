@@ -10,6 +10,9 @@ export interface RenderResult {
   encoder: string;
   duration_s: number;
   black_ratio: number;
+  clips_with_audio: number;
+  clips_total: number;
+  max_volume_db: number | null;
 }
 
 export interface VideoSource {

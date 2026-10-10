@@ -96,6 +96,8 @@ percentual de preto (`blackdetect`) e avisa o jogador. Lição: testes de mídia
 
 | **Instalador e atualização** (S7) | **Build passou** (10/10/2026): `Binguey_0.1.0_x64-setup.exe` (NSIS, instalação por usuário, sem pedir administrador), 3,8 MB, com assinatura de atualização (`.sig`). O app de release (CSP de produção) abre, carrega fontes e interface, detecta o ffmpeg e não gera violação de CSP. **Não testado:** instalar de verdade, SmartScreen num Windows limpo, e atualização ponta a ponta (precisa de duas versões publicadas). Fluxo: tag `vX.Y.Z` → `.github/workflows/release.yml` (tauri-action, Windows) → Release com instalador, `latest.json` e `sha256.txt`. |
 
+**Bug de áudio (0.1.1, corrigido na 0.1.2):** o OBS guarda o som global (desktop e microfone) dentro de cada coleção de cenas; a coleção "Binguey" nascia sem nenhum dispositivo e os clips saíam mudos (a faixa de áudio existe mas é silêncio). Agora o app cria o som do jogo (e o microfone, se o jogador quiser) na cena do Binguey e garante o item ligado a cada conexão (um item desligado deixa a fonte inativa). O teste mede o volume de pico do vídeo final (`volumedetect`) com um tom tocado durante a gravação: −0,2 dB; silêncio ≈ −91 dB.
+
 Pendências do S1:
 - Senha/porta do OBS: **resolvido**. O OBS guarda `server_enabled`, `server_port`, `server_password` e
   `auth_required` em `%APPDATA%\obs-studio\plugin_config\obs-websocket\config.json`; o comando Rust

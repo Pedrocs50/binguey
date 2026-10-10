@@ -69,6 +69,7 @@ function CaptureChoice({ roomId, password }: { roomId: string; password: string 
 
 /** Quanto tempo o clip guarda e em que resolução. Clips maiores gastam o armazenamento gratuito da sala. */
 function QualityChoice({ roomId, password }: { roomId: string; password: string }) {
+  const [mic, setMic] = useState(() => getSettings().micInClips);
   const [q, setQ] = useState<Pick<Settings, "clipSeconds" | "clipHeight">>(() => {
     const s = getSettings();
     return { clipSeconds: s.clipSeconds, clipHeight: s.clipHeight };
@@ -99,6 +100,18 @@ function QualityChoice({ roomId, password }: { roomId: string; password: string 
           </select>
         </label>
       </div>
+      <label className="mono" style={{ display: "block", margin: "0.2rem 0 0.6rem" }}>
+        <input
+          type="checkbox"
+          checked={mic}
+          onChange={(e) => {
+            setMic(e.target.checked);
+            setSettings({ ...getSettings(), micInClips: e.target.checked });
+            void connectObs(getObsPassword() || password, { roomId });
+          }}
+        />{" "}
+        gravar também o meu microfone nos clips <span className="rotulo">(o som do jogo sempre é gravado)</span>
+      </label>
       <p className="rotulo" style={{ margin: 0 }}>
         cada clip fica com uns {est.estimatedMb} MB. {est.estimatedMb > 15 && "Clips grandes enchem rápido o armazenamento gratuito (limite de 400 MB por sala): o que passar disso fica só no seu computador. "}
         Ao mudar, o OBS reinicia o buffer e os primeiros segundos podem sair mais curtos.
