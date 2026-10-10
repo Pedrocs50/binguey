@@ -84,5 +84,19 @@ const ended = await A.rpc("end_room", { p_room: r2.id });
 check("end_room: anfitrião encerra", ended.data?.status === "finished" && ended.data?.result === "ended", errOf(ended));
 check("end_room: não marca depois de encerrada", errOf(await B.rpc("mark_cell", { p_room: r2.id, p_idx: 0 })).includes("room_not_running"));
 
+// --- sorteio: só genéricos por padrão; com jogos escolhidos entram os específicos
+const r3 = (await A.rpc("create_room", { p_size: 5, p_duration_s: 300, p_target_lines: 2, p_clip_policy: "off" })).data;
+await A.rpc("start_room", { p_room: r3.id });
+const generic = await A.from("cells").select("game_slug").eq("room_id", r3.id);
+check("sorteio padrão: 25 casas, todas genéricas", generic.data?.length === 25 && generic.data.every((c) => c.game_slug === null), JSON.stringify(generic.data?.filter((c) => c.game_slug).slice(0, 3)));
+const r4 = (await A.rpc("create_room", { p_size: 5, p_duration_s: 300, p_target_lines: 2, p_clip_policy: "off" })).data;
+await A.rpc("start_room", { p_room: r4.id, p_custom_goals: ["Meu objetivo próprio"], p_game_slugs: ["minecraft", "elden-ring", "cs2"] });
+const mixed = await A.from("cells").select("goal_text, game_slug").eq("room_id", r4.id);
+const slugs = new Set((mixed.data ?? []).map((c) => c.game_slug).filter(Boolean));
+check("com jogos escolhidos: só os escolhidos aparecem", [...slugs].every((s) => ["minecraft", "elden-ring", "cs2"].includes(s)), [...slugs].join(","));
+check("objetivo próprio do anfitrião entra no tabuleiro", mixed.data?.some((c) => c.goal_text === "Meu objetivo próprio") === true);
+await A.rpc("end_room", { p_room: r3.id });
+await A.rpc("end_room", { p_room: r4.id });
+
 console.log(failed === 0 ? "\nTudo certo." : `\n${failed} falha(s).`);
 process.exit(failed === 0 ? 0 : 1);
