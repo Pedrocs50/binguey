@@ -92,6 +92,8 @@ escolhido (fonte 0×0): o vídeo final saía 100% preto e o teste não percebia.
 principal (`ensureMonitor`), o teste confere que a fonte recebe imagem (1920×1080) e a montagem mede o
 percentual de preto (`blackdetect`) e avisa o jogador. Lição: testes de mídia precisam olhar o conteúdo.
 
+| **Limpeza automática** (Edge Function) | **Passou** (10/10/2026): com data futura simulada, apagou 34 clips (68 arquivos: vídeo + miniatura) e 25 salas; depois da limpeza não sobrou arquivo no bucket. Arquivo órfão (enviado sem virar clip, com mais de 24 h) também removido. Falha ao remover do Storage mantém a linha para a próxima rodada (não testada: não consegui provocar). |
+
 Pendências do S1:
 - Senha/porta do OBS: **resolvido**. O OBS guarda `server_enabled`, `server_port`, `server_password` e
   `auth_required` em `%APPDATA%\obs-studio\plugin_config\obs-websocket\config.json`; o comando Rust

@@ -15,7 +15,7 @@ arquivo não sair, a linha fica e a próxima rodada tenta de novo.
 ## Como colocar no ar (pelo painel do Supabase)
 
 1. **SQL Editor:** rodar `supabase/migrations/20261010000800_purge.sql`.
-2. **Edge Functions → Deploy a new function → Via Editor:** nome `purge-expired`, colar o `index.ts` e fazer o deploy.
+2. **Edge Functions → Deploy a new function → Via Editor:** nome `purge-expired` (se o editor sortear outro, como `bright-action`, funciona igual: o agendamento usa `PURGE_URL`), colar o `index.ts` e fazer o deploy.
 3. Nas **configurações da função**, desligar **Verify JWT** (quem protege é o segredo abaixo).
 4. **Edge Functions → Secrets:** criar `PURGE_SECRET` com o mesmo valor que está em `.env.local` (`PURGE_SECRET=`).
 5. Testar (nada é apagado com `dry=1`):
@@ -28,4 +28,4 @@ node --env-file=.env.local scripts/purge-check.mjs 2026-12-01 # simula uma data 
 ## Agendamento
 
 `.github/workflows/keepalive.yml` chama a função a cada 12 h. Precisa dos *secrets* do repositório
-`SUPABASE_URL` e `PURGE_SECRET`.
+`SUPABASE_URL`, `SUPABASE_ANON_KEY`, `PURGE_URL` (endereço completo da função, como o painel mostra) e `PURGE_SECRET`.

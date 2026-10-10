@@ -1,7 +1,7 @@
 name: keepalive
 # Evita a pausa do projeto gratuito do Supabase (7 dias sem atividade) e fecha salas vencidas.
 # Obs.: o GitHub desativa workflows agendados após 60 dias sem atividade no repositório.
-# Também chama a Edge Function purge-expired (limpeza de clips vencidos). Secrets: SUPABASE_URL, SUPABASE_ANON_KEY, PURGE_SECRET.
+# Também chama a Edge Function purge-expired (limpeza de clips vencidos). Secrets: SUPABASE_URL, SUPABASE_ANON_KEY, PURGE_URL, PURGE_SECRET.
 on:
   schedule: [{ cron: "17 */12 * * *" }]
   workflow_dispatch:
@@ -13,9 +13,10 @@ jobs:
       - run: |
           curl -fsS -X POST "$SUPABASE_URL/rest/v1/rpc/ping" \
             -H "apikey: $SUPABASE_ANON_KEY" -H "Content-Type: application/json" -d '{}'
-          curl -fsS -X POST "$SUPABASE_URL/functions/v1/purge-expired" \
+          curl -fsS -X POST "$PURGE_URL" \
             -H "x-purge-secret: $PURGE_SECRET"
         env:
           SUPABASE_URL: ${{ secrets.SUPABASE_URL }}
           SUPABASE_ANON_KEY: ${{ secrets.SUPABASE_ANON_KEY }}
+          PURGE_URL: ${{ secrets.PURGE_URL }}
           PURGE_SECRET: ${{ secrets.PURGE_SECRET }}
