@@ -69,9 +69,21 @@ de OBS) está certa. Os pontos abaixo são o que eu corrigiria ou decidiria **an
 | --- | --- |
 | **S1** — salvar replay por comando e achar o arquivo | **Passou** (10/10/2026, OBS 32.2.2, obs-websocket 5.7.4): `SaveReplayBuffer` + evento `ReplayBufferSaved` entregou o caminho em 651 ms; arquivo dentro de `GetRecordDirectory`. `StartReplayBuffer` por comando funciona se o Replay Buffer estiver habilitado nas configurações (senão erro 604). Script: `apps/desktop/spikes/s1-obs-replay.mjs`. |
 
+| **S2** — app Tauri conecta no OBS e lê o arquivo com permissões mínimas | **Passou** (10/10/2026, Tauri 2, Rust 1.99): o WebView conectou em `ws://127.0.0.1:4455` com a CSP `connect-src ... ws://127.0.0.1:4455` (sem outras permissões além de `core:default`); o comando Rust `read_clip` leu um clip de 9,26 MB (assinatura `ftyp` ok) em 763 ms somando salvar+ler, e **recusou** `C:/Windows/win.ini` e um caminho com `..`. Primeira compilação: 3 min 26 s. Código: `apps/desktop/src-tauri` e `apps/desktop/ui`. |
+
+Notas do S2:
+- `read_clip` só lê `.mp4`/`.mkv` de até 50 MB dentro da pasta informada pelo OBS (`GetRecordDirectory`),
+  comparando caminhos já canonicalizados (resolve `..`, links e caixa). A pasta é definida pelo próprio
+  WebView; o modelo de ameaça é o da UI local empacotada com CSP restritiva (não carrega página remota).
+- A senha do OBS só chega ao app por variável de ambiente em build de debug (`spike_config`); em release
+  o assistente pede a senha ao usuário e a guarda localmente.
+- O CSP do app **não** precisou de `unsafe-eval` nem de domínios externos para falar com o OBS.
+
 Pendências do S1:
 - Ler a senha/porta do OBS automaticamente **não foi testado** (por ora o app pede a senha uma vez).
-- O clip do teste tinha só ~3 s (buffer recém-ligado): medir o tamanho real de um buffer cheio de 20 s.
+- Buffer cheio de 20 s a 6000 kbps (tela de monitor quase parada): **10,4 MB em 624 ms**. Com jogo em
+  movimento deve chegar perto de 15 MB; medir num jogo real (S3). O primeiro teste deu só 2,3 MB porque
+  o script tinha acabado de ligar o buffer.
 - No modo de saída Simples, o replay usa o bitrate da transmissão (6000 kbps no PC de teste, ~15 MB por 20 s,
   o dobro dos 7,5 MB previstos). Plano: o assistente cria um **perfil do OBS dedicado** ao Binguey
   (720p, 3 Mbps) por WebSocket, sem tocar no perfil normal do usuário. A validar no S1b.

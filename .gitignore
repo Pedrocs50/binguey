@@ -8,3 +8,6 @@ supabase/.branches/
 *.log
 .DS_Store
 target/
+
+# Tauri: arquivos gerados
+apps/desktop/src-tauri/gen/

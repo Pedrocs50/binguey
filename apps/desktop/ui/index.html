@@ -1,0 +1,32 @@
+<!doctype html>
+<html lang="pt-BR">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Binguey · spike S2</title>
+    <style>
+      :root { color-scheme: dark; --fundo:#111; --linha:#343434; --texto:#ececec; --suave:#9b9b94; }
+      body { margin: 0; padding: 1.2rem 1.5rem; background: var(--fundo); color: var(--texto); font: 14px/1.6 ui-monospace, Consolas, monospace; }
+      h1 { font-size: 1.1rem; margin: 0 0 .3rem; }
+      p { color: var(--suave); margin: 0 0 1rem; }
+      input, button { font: inherit; color: inherit; background: #1a1a1a; border: 1px solid var(--linha); border-radius: 0; padding: .4rem .7rem; }
+      button { cursor: pointer; background: var(--texto); color: var(--fundo); border-color: var(--texto); }
+      button.sec { background: transparent; color: var(--texto); border-color: var(--linha); }
+      button:disabled { opacity: .4; cursor: not-allowed; }
+      .linha { display: flex; gap: .6rem; margin-bottom: .8rem; flex-wrap: wrap; }
+      pre { margin: 0; padding: .8rem; border: 1px solid var(--linha); background: #1a1a1a; min-height: 18rem; white-space: pre-wrap; overflow-wrap: anywhere; }
+    </style>
+  </head>
+  <body>
+    <h1>binguey · spike S2</h1>
+    <p>O app conversa com o OBS (ws://127.0.0.1:4455) e lê o clip só dentro da pasta de gravação.</p>
+    <div class="linha">
+      <input id="senha" type="password" placeholder="senha do WebSocket do OBS" size="28" />
+      <button id="conectar">conectar</button>
+      <button id="salvar" disabled>salvar replay e ler arquivo</button>
+      <button id="fora" class="sec" disabled>testar leitura fora da pasta</button>
+    </div>
+    <pre id="log"></pre>
+    <script src="main.js"></script>
+  </body>
+</html>
