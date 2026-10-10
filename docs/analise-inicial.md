@@ -94,6 +94,8 @@ percentual de preto (`blackdetect`) e avisa o jogador. Lição: testes de mídia
 
 | **Limpeza automática** (Edge Function) | **Passou** (10/10/2026): com data futura simulada, apagou 34 clips (68 arquivos: vídeo + miniatura) e 25 salas; depois da limpeza não sobrou arquivo no bucket. Arquivo órfão (enviado sem virar clip, com mais de 24 h) também removido. Falha ao remover do Storage mantém a linha para a próxima rodada (não testada: não consegui provocar). |
 
+| **Instalador e atualização** (S7) | **Build passou** (10/10/2026): `Binguey_0.1.0_x64-setup.exe` (NSIS, instalação por usuário, sem pedir administrador), 3,8 MB, com assinatura de atualização (`.sig`). O app de release (CSP de produção) abre, carrega fontes e interface, detecta o ffmpeg e não gera violação de CSP. **Não testado:** instalar de verdade, SmartScreen num Windows limpo, e atualização ponta a ponta (precisa de duas versões publicadas). Fluxo: tag `vX.Y.Z` → `.github/workflows/release.yml` (tauri-action, Windows) → Release com instalador, `latest.json` e `sha256.txt`. |
+
 Pendências do S1:
 - Senha/porta do OBS: **resolvido**. O OBS guarda `server_enabled`, `server_port`, `server_password` e
   `auth_required` em `%APPDATA%\obs-studio\plugin_config\obs-websocket\config.json`; o comando Rust

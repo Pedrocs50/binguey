@@ -1,5 +1,6 @@
 import type { ReactNode } from "react";
 import { Link } from "./Link";
+import { UpdateBanner } from "./UpdateBanner";
 
 function toggleTheme() {
   const root = document.documentElement;
@@ -27,7 +28,10 @@ export function Layout({ children }: { children: ReactNode }) {
           </nav>
         </div>
       </header>
-      <main className="container pagina">{children}</main>
+      <main className="container pagina">
+        <UpdateBanner />
+        {children}
+      </main>
       <footer className="rodape">
         <div className="container rodape-int">
           <span>© {new Date().getFullYear()} binguey</span>

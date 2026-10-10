@@ -1,0 +1,58 @@
+name: release
+# Publica o instalador do app (Windows) a cada tag vX.Y.Z.
+#   git tag v0.1.0 && git push origin v0.1.0
+# O instalador NÃO é assinado digitalmente (o Windows mostra o aviso do SmartScreen); as atualizações
+# automáticas são assinadas com a chave do Tauri. Secrets necessários no repositório:
+#   TAURI_SIGNING_PRIVATE_KEY, TAURI_SIGNING_PRIVATE_KEY_PASSWORD, VITE_SUPABASE_URL, VITE_SUPABASE_ANON_KEY
+on:
+  push:
+    tags: ["v*"]
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+jobs:
+  windows:
+    runs-on: windows-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: pnpm/action-setup@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: pnpm
+      - uses: dtolnay/rust-toolchain@stable
+      - uses: swatinem/rust-cache@v2
+        with:
+          workspaces: apps/desktop/src-tauri
+      - run: pnpm install --frozen-lockfile
+      - uses: tauri-apps/tauri-action@v0
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          TAURI_SIGNING_PRIVATE_KEY: ${{ secrets.TAURI_SIGNING_PRIVATE_KEY }}
+          TAURI_SIGNING_PRIVATE_KEY_PASSWORD: ${{ secrets.TAURI_SIGNING_PRIVATE_KEY_PASSWORD }}
+          VITE_SUPABASE_URL: ${{ secrets.VITE_SUPABASE_URL }}
+          VITE_SUPABASE_ANON_KEY: ${{ secrets.VITE_SUPABASE_ANON_KEY }}
+        with:
+          projectPath: apps/desktop
+          tagName: ${{ github.ref_name }}
+          releaseName: "Binguey ${{ github.ref_name }}"
+          releaseBody: |
+            Instalador do Binguey para Windows 10/11.
+
+            Como o instalador ainda não tem assinatura digital, o Windows pode mostrar "O Windows protegeu o seu PC":
+            clique em **Mais informações** e depois em **Executar assim mesmo**. O arquivo é gerado pelo GitHub Actions
+            a partir do código deste repositório; confira o SHA-256 em `sha256.txt` (nesta página).
+          releaseDraft: false
+          prerelease: false
+          includeUpdaterJson: true
+      - name: SHA-256 do instalador
+        shell: pwsh
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          $f = Get-ChildItem apps/desktop/src-tauri/target/release/bundle/nsis/*-setup.exe | Select-Object -First 1
+          $h = (Get-FileHash $f.FullName -Algorithm SHA256).Hash.ToLower()
+          "$h  $($f.Name)" | Out-File -Encoding ascii sha256.txt
+          gh release upload "${{ github.ref_name }}" sha256.txt --clobber

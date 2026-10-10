@@ -9,6 +9,7 @@ use std::{
 use std::process::{Command, Stdio};
 use tauri::{ipc::Response, AppHandle, Emitter, Manager, State};
 use tauri_plugin_deep_link::DeepLinkExt;
+use tauri_plugin_updater::UpdaterExt;
 use tauri_plugin_global_shortcut::{Code, GlobalShortcutExt, Modifiers, Shortcut, ShortcutState};
 
 const MAX_CLIP_BYTES: u64 = 50 * 1024 * 1024; // limite por arquivo do Storage gratuito
@@ -210,6 +211,36 @@ fn toggle_overlay(app: AppHandle) -> bool {
     toggle_overlay_window(&app)
 }
 
+// ---- Atualização automática ---------------------------------------------------------------------
+
+#[derive(serde::Serialize)]
+struct UpdateInfo {
+    version: String,
+    notes: Option<String>,
+}
+
+/// Procura uma versão nova nas Releases do GitHub (a assinatura é conferida com a chave pública do app).
+#[tauri::command]
+async fn check_update(app: AppHandle) -> Result<Option<UpdateInfo>, String> {
+    let updater = app.updater().map_err(|e| e.to_string())?;
+    match updater.check().await {
+        Ok(Some(u)) => Ok(Some(UpdateInfo { version: u.version.clone(), notes: u.body.clone() })),
+        Ok(None) => Ok(None),
+        Err(e) => Err(e.to_string()),
+    }
+}
+
+/// Baixa, instala e reinicia. Só roda quando o jogador clica em "atualizar".
+#[tauri::command]
+async fn install_update(app: AppHandle) -> Result<(), String> {
+    let updater = app.updater().map_err(|e| e.to_string())?;
+    let Some(update) = updater.check().await.map_err(|e| e.to_string())? else {
+        return Ok(());
+    };
+    update.download_and_install(|_, _| {}, || {}).await.map_err(|e| e.to_string())?;
+    app.restart()
+}
+
 // ---- Abrir o OBS --------------------------------------------------------------------------------
 
 #[cfg(windows)]
@@ -344,6 +375,7 @@ pub fn run() {
             }
         }))
         .plugin(tauri_plugin_deep_link::init())
+        .plugin(tauri_plugin_updater::Builder::new().build())
         .plugin(
             tauri_plugin_global_shortcut::Builder::new()
                 .with_handler(move |app, shortcut, event| {
@@ -404,6 +436,8 @@ pub fn run() {
             open_clips_dir,
             launch_obs,
             toggle_overlay,
+            check_update,
+            install_update,
             video::find_ffmpeg,
             video::install_ffmpeg,
             video::render_highlights,
