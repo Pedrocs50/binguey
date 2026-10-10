@@ -63,6 +63,19 @@ de OBS) está certa. Os pontos abaixo são o que eu corrigiria ou decidiria **an
 | `apps/web` | só um placeholder que importa o pacote compartilhado |
 | `apps/desktop` | não iniciado (sem Rust instalado) |
 
+## Spikes
+
+| Spike | Resultado |
+| --- | --- |
+| **S1** — salvar replay por comando e achar o arquivo | **Passou** (10/10/2026, OBS 32.2.2, obs-websocket 5.7.4): `SaveReplayBuffer` + evento `ReplayBufferSaved` entregou o caminho em 651 ms; arquivo dentro de `GetRecordDirectory`. `StartReplayBuffer` por comando funciona se o Replay Buffer estiver habilitado nas configurações (senão erro 604). Script: `apps/desktop/spikes/s1-obs-replay.mjs`. |
+
+Pendências do S1:
+- Ler a senha/porta do OBS automaticamente **não foi testado** (por ora o app pede a senha uma vez).
+- O clip do teste tinha só ~3 s (buffer recém-ligado): medir o tamanho real de um buffer cheio de 20 s.
+- No modo de saída Simples, o replay usa o bitrate da transmissão (6000 kbps no PC de teste, ~15 MB por 20 s,
+  o dobro dos 7,5 MB previstos). Plano: o assistente cria um **perfil do OBS dedicado** ao Binguey
+  (720p, 3 Mbps) por WebSocket, sem tocar no perfil normal do usuário. A validar no S1b.
+
 ## Próximos passos
 
 1. Criar projeto Supabase **dev** em São Paulo e aplicar as migrations (`supabase db push`);
