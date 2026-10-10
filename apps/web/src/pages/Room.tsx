@@ -181,6 +181,10 @@ function Lobby({ data, me }: { data: RoomData; me: string }) {
       {isHost ? (
         <section className="secao">
           <h2>objetivos</h2>
+          <p className="rotulo" style={{ marginTop: 0 }}>
+            Por padrão o tabuleiro usa só objetivos que servem para qualquer jogo: cada um cumpre no jogo que quiser, e pode
+            abrir e fechar jogos durante a partida.
+          </p>
           {error && (
             <div className="aviso erro" role="alert">
               {error}
@@ -188,7 +192,7 @@ function Lobby({ data, me }: { data: RoomData; me: string }) {
           )}
           {games.length > 0 && (
             <fieldset style={{ border: 0, padding: 0, margin: "0 0 1rem" }}>
-              <legend className="rotulo">jogos da noite (vazio = todos)</legend>
+              <legend className="rotulo">objetivos extras de jogos específicos (opcional)</legend>
               {games.map((g) => (
                 <label key={g.slug} className="mono" style={{ display: "inline-block", marginRight: "1rem" }}>
                   <input

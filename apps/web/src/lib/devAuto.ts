@@ -71,7 +71,7 @@ export async function maybeRunDevAuto(): Promise<void> {
     report(`E2E.4 ${dup ? "PASS" : "FAIL"}  marcação perdida não gera clip`);
 
     const setup = await obs.describeSetup();
-    const profileOk = /perfil=Binguey/.test(setup) && /x720@/.test(setup) && /bitrate=3000/.test(setup) && /Binguey$/i.test(setup);
+    const profileOk = /coleção=Binguey/.test(setup) && /fontes=monitor_capture/.test(setup) && /perfil=Binguey/.test(setup) && /x720@/.test(setup) && /bitrate=3000/.test(setup) && /pasta=[^ ]*Binguey /i.test(setup);
     report(`E2E.5 ${profileOk ? "PASS" : "FAIL"}  perfil dedicado: ${setup}`);
     if (getObsState().profileNote) report(`  aviso: ${getObsState().profileNote}`);
 
@@ -82,6 +82,14 @@ export async function maybeRunDevAuto(): Promise<void> {
       `E2E.6 ${(before?.count ?? 0) >= 1 && cleaned.count >= 1 && after?.count === 0 ? "PASS" : "FAIL"}  arquivos locais: ` +
         `${before?.count} antes → limpou ${cleaned.count} (${(cleaned.bytes / 1024 / 1024).toFixed(1)} MB) → ${after?.count} depois`,
     );
+
+    // Modo "só o jogo": a coleção do Binguey troca a fonte para Captura de Jogo (qualquer app em tela cheia).
+    localStorage.setItem("binguey:settings", JSON.stringify({ deleteLocalAfterUpload: false, captureMode: "game" }));
+    await connectObs(cfg.password || fromConfig?.password || "", { roomId: room.id });
+    const gameSetup = await obs.describeSetup();
+    report(`E2E.9 ${gameSetup.includes("fontes=game_capture") ? "PASS" : "FAIL"}  modo só o jogo: ${gameSetup}`);
+    if (getObsState().profileNote) report(`  aviso: ${getObsState().profileNote}`);
+    localStorage.setItem("binguey:settings", JSON.stringify({ deleteLocalAfterUpload: false, captureMode: "display" }));
 
     const ended = await api.endRoom(supabase, room.id).catch(() => null);
     report(`E2E.8 ${ended?.result === "ended" ? "PASS" : "FAIL"}  anfitrião encerra a partida (result=${ended?.result})`);

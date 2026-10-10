@@ -13,7 +13,7 @@ import {
   useObsState,
   type LocalClips,
 } from "../lib/obsStore";
-import { getObsPassword, getSettings, setSettings } from "../lib/storage";
+import { getObsPassword, getSettings, setSettings, type CaptureMode } from "../lib/storage";
 
 const RELEASES_URL = "https://github.com/Pedrocs50/binguey/releases/latest";
 
@@ -40,6 +40,33 @@ function InstallHint() {
 }
 
 /** Arquivos locais dos replays: por padrão ficam guardados; apagar é opção do jogador. */
+const MODES: { id: CaptureMode; label: string; hint: string }[] = [
+  { id: "display", label: "qualquer jogo", hint: "grava o monitor principal; serve para qualquer jogo, em janela ou tela cheia" },
+  { id: "game", label: "só o jogo em tela cheia", hint: "Captura de Jogo; não grava notificações, mas não pega jogo em janela comum" },
+  { id: "mine", label: "a minha cena do OBS", hint: "não mexo na sua cena; você configura as fontes" },
+];
+
+/** O que o OBS grava. Ao trocar, reaplica a configuração na hora. */
+function CaptureChoice({ roomId, password }: { roomId: string; password: string }) {
+  const [mode, setMode] = useState<CaptureMode>(() => getSettings().captureMode);
+  function choose(next: CaptureMode) {
+    setMode(next);
+    setSettings({ ...getSettings(), captureMode: next });
+    void connectObs(getObsPassword() || password, { roomId });
+  }
+  return (
+    <fieldset className="modos">
+      <legend className="rotulo">o que gravar (você pode abrir e fechar jogos à vontade)</legend>
+      {MODES.map((m) => (
+        <label key={m.id} className="mono">
+          <input type="radio" name="captura" checked={mode === m.id} onChange={() => choose(m.id)} /> {m.label}
+          <span className="rotulo dica"> — {m.hint}</span>
+        </label>
+      ))}
+    </fieldset>
+  );
+}
+
 function LocalFiles() {
   const queue = useClipQueue();
   const [info, setInfo] = useState<LocalClips | null>(null);
@@ -72,7 +99,7 @@ function LocalFiles() {
           checked={del}
           onChange={(e) => {
             setDel(e.target.checked);
-            setSettings({ deleteLocalAfterUpload: e.target.checked });
+            setSettings({ ...getSettings(), deleteLocalAfterUpload: e.target.checked });
           }}
         />{" "}
         apagar o arquivo daqui depois de enviar à sala
@@ -176,6 +203,7 @@ function Wizard({ roomId, compact }: { roomId: string; compact: boolean }) {
         <summary className="mono">{ready ? "[clips ativos]" : "clips desligados — conectar ao OBS"}</summary>
         {status}
         {form}
+        {ready && <CaptureChoice roomId={roomId} password={password} />}
         {ready && <LocalFiles />}
       </details>
     );
@@ -185,7 +213,8 @@ function Wizard({ roomId, compact }: { roomId: string; compact: boolean }) {
       <h2>clips automáticos</h2>
       {status}
       {form}
-      {ready && <LocalFiles />}
+      {ready && <CaptureChoice roomId={roomId} password={password} />}
+        {ready && <LocalFiles />}
       {!ready && (
         <p className="rotulo" style={{ marginTop: "1rem" }}>
           Antes: no OBS, ative o servidor WebSocket (Ferramentas → Configurações do servidor WebSocket) e o Buffer de

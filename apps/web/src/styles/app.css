@@ -74,6 +74,9 @@
 .secao-compacta summary { cursor: pointer; }
 .secao-compacta form { margin-top: 0.8rem; }
 
+.modos { border: 0; padding: 0; margin: 1rem 0 0; }
+.modos label { display: block; margin: 0.25rem 0; }
+
 .arquivos { margin-top: 1rem; padding-top: 0.8rem; border-top: 1px solid var(--linha); }
 
 button.link { background: none; border: 0; padding: 0; font: inherit; color: var(--texto-suave); cursor: pointer; text-decoration: underline; text-underline-offset: 3px; }

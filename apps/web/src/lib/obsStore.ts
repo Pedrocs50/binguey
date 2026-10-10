@@ -2,7 +2,7 @@ import { useSyncExternalStore } from "react";
 import { api } from "@binguey/shared";
 import { invoke, isDesktop } from "./desktop";
 import { obs, ObsError } from "./obs";
-import { getObsPassword, setObsPassword } from "./storage";
+import { getObsPassword, getSettings, setObsPassword } from "./storage";
 import { supabase } from "./supabase";
 
 export type ObsPhase = "off" | "connecting" | "ready" | "error";
@@ -102,9 +102,12 @@ export async function connectObs(password: string, opts: { test?: boolean; roomI
     }
     setObsPassword(password);
     const kinds = await obs.activeCaptureKinds();
-    const captureWarning = kinds.includes("monitor_capture")
-      ? "A cena do OBS grava o monitor inteiro: notificações, Discord e outras janelas aparecem nos clips. Para jogos, prefira “Captura de Jogo” (Fontes → + → Captura de Jogo)."
-      : "";
+    const mode = getSettings().captureMode;
+    const captureWarning = !kinds.includes("monitor_capture")
+      ? ""
+      : mode === "display"
+        ? "Gravando o monitor principal: funciona com qualquer jogo, mas notificações, Discord e outras janelas também aparecem nos clips. Para gravar só o jogo, escolha “só o jogo em tela cheia”."
+        : "A sua cena do OBS grava o monitor inteiro: notificações e outras janelas aparecem nos clips.";
     set({
       phase: "ready",
       message: "",

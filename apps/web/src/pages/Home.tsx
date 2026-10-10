@@ -41,7 +41,7 @@ export function Home() {
 
   return (
     <>
-      <p className="intro">Bingo cooperativo de videogame. Cada um joga o seu jogo; a sala marca o tabuleiro junto.</p>
+      <p className="intro">Bingo cooperativo de videogame. Cumpra os objetivos em qualquer jogo, abrindo e fechando jogos como quiser; a sala marca o tabuleiro junto.</p>
 
       {error && (
         <div className="aviso erro" role="alert">

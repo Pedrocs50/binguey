@@ -22,17 +22,31 @@ export const setNickname = (n: string) => write("binguey:nick", n);
 export const getObsPassword = () => read("binguey:obs-pass") ?? "";
 export const setObsPassword = (p: string) => write("binguey:obs-pass", p);
 
+/**
+ * O que o OBS grava. O jogador abre e fecha jogos durante a partida, então a captura precisa seguir
+ * qualquer jogo:
+ * - display: grava o monitor principal (funciona com qualquer jogo, janela ou tela cheia; mostra também
+ *   notificações e outras janelas);
+ * - game: Captura de Jogo em "qualquer aplicativo em tela cheia" (só o jogo; não pega jogo em janela);
+ * - mine: usa a cena que o jogador já tem no OBS, sem criar nada.
+ */
+export type CaptureMode = "display" | "game" | "mine";
+
 export interface Settings {
   /** Apagar o arquivo local do replay depois que o clip foi enviado. Padrão: guardar (é o seu momento). */
   deleteLocalAfterUpload: boolean;
+  captureMode: CaptureMode;
 }
 
 export function getSettings(): Settings {
   try {
     const parsed = JSON.parse(read("binguey:settings") ?? "{}") as Partial<Settings>;
-    return { deleteLocalAfterUpload: parsed.deleteLocalAfterUpload === true };
+    return {
+      deleteLocalAfterUpload: parsed.deleteLocalAfterUpload === true,
+      captureMode: parsed.captureMode === "game" || parsed.captureMode === "mine" ? parsed.captureMode : "display",
+    };
   } catch {
-    return { deleteLocalAfterUpload: false };
+    return { deleteLocalAfterUpload: false, captureMode: "display" };
   }
 }
 export const setSettings = (s: Settings) => write("binguey:settings", JSON.stringify(s));

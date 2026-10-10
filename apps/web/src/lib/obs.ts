@@ -1,4 +1,5 @@
 import { invoke } from "./desktop";
+import { getSettings, type CaptureMode } from "./storage";
 
 export type ObsErrorCode =
   | "unreachable"
@@ -21,6 +22,14 @@ export class ObsError extends Error {
 export const OBS_URL = "ws://127.0.0.1:4455";
 export const PROFILE = "Binguey";
 const PREV_PROFILE_KEY = "binguey:obs-prev-profile";
+export const COLLECTION = "Binguey";
+const PREV_COLLECTION_KEY = "binguey:obs-prev-collection";
+/** Uma fonte por modo; trocar de modo só liga uma e desliga a outra (o OBS demora a liberar nomes removidos). */
+const CAPTURE_SOURCES: Record<Exclude<CaptureMode, "mine">, { name: string; kind: string }> = {
+  display: { name: "Binguey: monitor", kind: "monitor_capture" },
+  game: { name: "Binguey: jogo", kind: "game_capture" },
+};
+const sleep = (ms: number) => new Promise((r) => setTimeout(r, ms));
 const OUTPUTS_EVENTS = 1 << 6; // obs-websocket: EventSubscription.Outputs (ReplayBufferSaved)
 
 interface Response {
@@ -162,6 +171,22 @@ export class ObsClient {
     return r;
   }
 
+  /** Saídas do OBS em uso agora (transmissão, gravação, câmera virtual, replay buffer). */
+  async activeOutputs(): Promise<string[]> {
+    const checks: [string, string][] = [
+      ["transmissão", "GetStreamStatus"],
+      ["gravação", "GetRecordStatus"],
+      ["câmera virtual", "GetVirtualCamStatus"],
+      ["replay buffer", "GetReplayBufferStatus"],
+    ];
+    const active: string[] = [];
+    for (const [name, type] of checks) {
+      const r = await this.request(type).catch(() => null);
+      if (r?.ok && r.data.outputActive) active.push(name);
+    }
+    return active;
+  }
+
   private async stopReplayBuffer(): Promise<void> {
     const s = await this.request("GetReplayBufferStatus");
     if (!s.ok || !s.data.outputActive) return;
@@ -182,6 +207,11 @@ export class ObsClient {
     const list = await this.mustOk("GetProfileList");
     const current = String(list.data.currentProfileName);
     const profiles = (list.data.profiles ?? []) as string[];
+
+    const busy = (await this.activeOutputs()).filter((n) => n !== "replay buffer");
+    if (busy.length > 0) {
+      throw new ObsError("save_failed", `o OBS está em uso (${busy.join(", ")}); não troco o perfil nem a cena enquanto isso`);
+    }
 
     if (current === PROFILE && (await this.param("SimpleOutput", "VBitrate")) === "3000") {
       // Já configurado; só garante que o OBS criou a saída do Replay Buffer.
@@ -218,9 +248,10 @@ export class ObsClient {
       await this.mustOk("SetProfileParameter", { parameterCategory, parameterName, parameterValue });
     }
 
+    await this.stopReplayBuffer(); // o OBS pode ter religado o buffer ao carregar o perfil
     const outputHeight = Math.min(720, baseH);
     const outputWidth = Math.round((outputHeight * baseW) / baseH / 2) * 2; // largura par
-    await this.mustOk("SetVideoSettings", {
+    const setVideo = await this.request("SetVideoSettings", {
       baseWidth: baseW,
       baseHeight: baseH,
       outputWidth,
@@ -228,6 +259,9 @@ export class ObsClient {
       fpsNumerator: 30,
       fpsDenominator: 1,
     });
+    if (!setVideo.ok) {
+      throw new ObsError("save_failed", `SetVideoSettings falhou (${setVideo.comment ?? setVideo.code}); saídas ativas: ${(await this.activeOutputs()).join(", ") || "nenhuma"}`);
+    }
     await this.mustOk("SetRecordDirectory", { recordDirectory: await invoke<string>("default_clips_dir") });
 
     // O OBS só cria a saída do Replay Buffer ao carregar o perfil; se ainda não existe, recarrega.
@@ -248,8 +282,97 @@ export class ObsClient {
     await new Promise((r) => setTimeout(r, 800));
   }
 
-  /** Volta ao perfil que o usuário usava antes (se o Binguey o trocou). Melhor esforço. */
+  // ---- Cena do Binguey: captura que acompanha qualquer jogo ----------------------------------------
+
+  /**
+   * Monta uma coleção de cenas só do Binguey com UMA fonte de captura que funciona para qualquer jogo
+   * que o jogador abrir ou fechar (monitor principal, ou Captura de Jogo em "qualquer aplicativo em tela
+   * cheia"). No modo "mine" não cria nada e devolve a coleção do jogador, se estava em outra.
+   */
+  async useBingueyScene(mode: CaptureMode): Promise<void> {
+    if (mode === "mine") return this.restoreCollection();
+
+    const list = await this.mustOk("GetSceneCollectionList");
+    const current = String(list.data.currentSceneCollectionName);
+    const collections = (list.data.sceneCollections ?? []) as string[];
+    if (current !== COLLECTION) {
+      localStorage.setItem(PREV_COLLECTION_KEY, current);
+      await this.stopReplayBuffer();
+      await this.mustOk(collections.includes(COLLECTION) ? "SetCurrentSceneCollection" : "CreateSceneCollection", {
+        sceneCollectionName: COLLECTION,
+      });
+      await sleep(1000);
+    }
+
+    const scenes = await this.mustOk("GetSceneList");
+    const names = ((scenes.data.scenes ?? []) as { sceneName: string }[]).map((s) => s.sceneName);
+    if (!names.includes(COLLECTION)) await this.mustOk("CreateScene", { sceneName: COLLECTION });
+    await this.mustOk("SetCurrentProgramScene", { sceneName: COLLECTION });
+
+    const items = await this.mustOk("GetSceneItemList", { sceneName: COLLECTION });
+    const list2 = (items.data.sceneItems ?? []) as { sourceName: string; sceneItemId: number }[];
+    const setEnabled = (sceneItemId: number, sceneItemEnabled: boolean) =>
+      this.request("SetSceneItemEnabled", { sceneName: COLLECTION, sceneItemId, sceneItemEnabled });
+
+    // Desliga toda fonte "Binguey: ..." que não seja a do modo escolhido (inclui nomes de versões antigas)
+    // e liga (criando, se preciso) a do modo.
+    const want = CAPTURE_SOURCES[mode];
+    for (const item of list2) {
+      if (item.sourceName.startsWith("Binguey: ") && item.sourceName !== want.name) {
+        await setEnabled(item.sceneItemId, false);
+      }
+    }
+    const existing = list2.find((i) => i.sourceName === want.name);
+    if (existing) {
+      await setEnabled(existing.sceneItemId, true);
+      return;
+    }
+
+    const created = await this.mustOk("CreateInput", {
+      sceneName: COLLECTION,
+      inputName: want.name,
+      inputKind: want.kind,
+      inputSettings: want.kind === "game_capture" ? { capture_mode: "any_fullscreen" } : {},
+      sceneItemEnabled: true,
+    });
+    // Encaixa a captura na tela da cena (escala proporcional, sem cortar).
+    const video = await this.mustOk("GetVideoSettings");
+    await this.request("SetSceneItemTransform", {
+      sceneName: COLLECTION,
+      sceneItemId: created.data.sceneItemId,
+      sceneItemTransform: {
+        positionX: 0,
+        positionY: 0,
+        alignment: 5,
+        boundsType: "OBS_BOUNDS_SCALE_INNER",
+        boundsAlignment: 0,
+        boundsWidth: Number(video.data.baseWidth),
+        boundsHeight: Number(video.data.baseHeight),
+      },
+    });
+  }
+
+  /** Devolve a coleção de cenas que o jogador usava (se o Binguey a trocou). Melhor esforço. */
+  async restoreCollection(): Promise<void> {
+    const previous = localStorage.getItem(PREV_COLLECTION_KEY);
+    if (!previous || !this.connected) return;
+    try {
+      const list = await this.request("GetSceneCollectionList");
+      const collections = (list.data.sceneCollections ?? []) as string[];
+      if (list.data.currentSceneCollectionName === COLLECTION && collections.includes(previous)) {
+        await this.stopReplayBuffer();
+        await this.request("SetCurrentSceneCollection", { sceneCollectionName: previous });
+        await sleep(1000);
+      }
+      localStorage.removeItem(PREV_COLLECTION_KEY);
+    } catch {
+      /* se o OBS não responder, o jogador troca manualmente */
+    }
+  }
+
+  /** Volta ao perfil e à coleção de cenas que o usuário usava antes. Melhor esforço. */
   async restoreProfile(): Promise<void> {
+    await this.restoreCollection();
     const previous = localStorage.getItem(PREV_PROFILE_KEY);
     if (!previous || !this.connected) return;
     try {
@@ -273,7 +396,9 @@ export class ObsClient {
     return (
       `perfil=${list.data.currentProfileName} · saída=${video.data.outputWidth}x${video.data.outputHeight}` +
       `@${video.data.fpsNumerator}/${video.data.fpsDenominator} · bitrate=${await this.param("SimpleOutput", "VBitrate")}` +
-      ` · buffer=${await this.param("SimpleOutput", "RecRBTime")}s · pasta=${dir.data.recordDirectory}`
+      ` · buffer=${await this.param("SimpleOutput", "RecRBTime")}s · pasta=${dir.data.recordDirectory}` +
+      ` · coleção=${(await this.request("GetSceneCollectionList")).data.currentSceneCollectionName}` +
+      ` · fontes=${(await this.activeCaptureKinds()).join("+") || "nenhuma"}`
     );
   }
 
@@ -288,6 +413,12 @@ export class ObsClient {
     } catch (e) {
       // Sem o perfil dedicado o app ainda funciona com a configuração atual do usuário.
       this.profileNote = `Não consegui preparar o perfil do Binguey no OBS (${e instanceof Error ? e.message : e}). Usando a sua configuração atual.`;
+    }
+
+    try {
+      await this.useBingueyScene(getSettings().captureMode);
+    } catch (e) {
+      this.profileNote += ` Não consegui montar a cena do Binguey (${e instanceof Error ? e.message : e}). Usando a sua cena atual.`;
     }
 
     const dir = await this.request("GetRecordDirectory");

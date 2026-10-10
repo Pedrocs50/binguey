@@ -5,8 +5,11 @@ import { obs } from "./obs";
 import { getSettings } from "./storage";
 import { supabase } from "./supabase";
 
-/** Segundos de "pós-roll": espera depois do clique para o clip incluir a reação. */
-export const POST_ROLL_MS = 2000;
+/**
+ * Espera curta depois do clique antes de salvar. O jogador cumpre o objetivo no jogo e só depois volta ao
+ * app para marcar; o que importa está ANTES do clique (o buffer guarda 20 s), então não esperamos mais.
+ */
+export const POST_ROLL_MS = 500;
 const QUEUE_KEY = "binguey:clipQueue";
 const MAX_ATTEMPTS = 5;
 /** Erros do servidor que não adianta repetir: descarta o item da fila. */
@@ -81,7 +84,7 @@ function once(target: HTMLVideoElement, event: string, ms: number): Promise<void
   });
 }
 
-/** Tira um quadro perto do momento da marcação (o clip termina ~2 s depois dela). */
+/** Tira um quadro do meio do clip (o final costuma mostrar o próprio app, onde o jogador marcou). */
 async function inspectVideo(video: Blob): Promise<{ durationMs: number; thumb: Blob | null }> {
   const url = URL.createObjectURL(video);
   try {
@@ -93,7 +96,7 @@ async function inspectVideo(video: Blob): Promise<{ durationMs: number; thumb: B
     const durationMs = Math.round((Number.isFinite(el.duration) ? el.duration : 0) * 1000);
     let thumb: Blob | null = null;
     try {
-      el.currentTime = Math.max(0, el.duration - POST_ROLL_MS / 1000 - 0.5);
+      el.currentTime = Math.max(0, el.duration * 0.6);
       await once(el, "seeked", 8000);
       const canvas = document.createElement("canvas");
       canvas.width = 320;

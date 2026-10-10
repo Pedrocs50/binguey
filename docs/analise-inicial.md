@@ -120,6 +120,25 @@ Decisões tomadas:
   (a) da seção "Pontos que precisam de decisão". A (b), `claim_device`, fica para a Fase 3.
 - CSP do app libera apenas `self`, `ws://127.0.0.1:4455` e `*.supabase.co` (https/wss).
 
+## A ideia central: qualquer jogo (esclarecida em 10/10/2026)
+
+O bingo é para **cumprir os objetivos em qualquer jogo**; o jogador abre e fecha jogos durante a partida.
+Consequências já implementadas:
+- **Biblioteca**: ~75 objetivos genéricos (servem para qualquer jogo, incluindo "jogar um jogo que nunca abriu"
+  e "voltar a um jogo de hoje") + extras de 15 jogos. Migration `0007_goal_library.sql` (idempotente).
+- **Sorteio**: sem escolher jogos, o tabuleiro usa **só** objetivos genéricos; jogos específicos são extra
+  opcional do anfitrião (antes, "vazio = todos" misturava Minecraft com Elden Ring).
+- **Captura**: o app monta no OBS uma coleção de cenas "Binguey" com uma fonte que acompanha qualquer jogo:
+  monitor principal (padrão; serve para janela e tela cheia) ou Captura de Jogo em "qualquer aplicativo em
+  tela cheia" (só o jogo, mas não pega janela comum) ou a cena do próprio jogador. Perfil e cena do jogador
+  são devolvidos ao desativar, ao fechar o app e em falhas; se o OBS está transmitindo/gravando, não mexe.
+- **Pós-roll** reduzido de 2 s para 0,5 s e miniatura do meio do clip: o jogador cumpre o objetivo no jogo e
+  só depois volta ao app para marcar; o que importa está antes do clique.
+
+Decisão pendente (maior impacto de usabilidade): **marcar sem sair do jogo**. Hoje é preciso dar Alt+Tab
+para clicar na casa. Proposta: mini-tabuleiro sempre-no-topo (segunda janela do app) aberto por atalho global.
+Funciona em janela sem bordas; em tela cheia exclusiva depende do jogo.
+
 ## Próximos passos
 
 1. Criar projeto Supabase **dev** em São Paulo e aplicar as migrations (`supabase db push`);
