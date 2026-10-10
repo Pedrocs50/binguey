@@ -11,3 +11,7 @@ target/
 
 # Tauri: arquivos gerados
 apps/desktop/src-tauri/gen/
+
+# Anotações pessoais (não vão para o GitHub)
+NOTAS.md
+notas/
