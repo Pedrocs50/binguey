@@ -8,3 +8,6 @@ enable_anonymous_sign_ins = true
 [db.seed]
 enabled = true
 sql_paths = ["./seed.sql"]
+
+[functions.purge-expired]
+verify_jwt = false # protegida pelo segredo PURGE_SECRET
