@@ -1,5 +1,5 @@
 import { useState, type FormEvent } from "react";
-import { maxLines, parseInvite, type BoardSize } from "@binguey/shared";
+import { maxLines, parseInvite, type BoardSize, type WinMode } from "@binguey/shared";
 import { Link } from "../components/Link";
 import { createRoomAs, validateNickname } from "../lib/actions";
 import { errorMessage } from "../lib/errors";
@@ -11,6 +11,7 @@ export function Home() {
   const [size, setSize] = useState<BoardSize>(4);
   const [minutes, setMinutes] = useState(60);
   const [target, setTarget] = useState(2);
+  const [winMode, setWinMode] = useState<WinMode>("lines");
   const [clips, setClips] = useState<"optional" | "off">("optional");
   const [code, setCode] = useState("");
   const [error, setError] = useState<string | null>(null);
@@ -24,7 +25,7 @@ export function Home() {
     setBusy(true);
     setError(null);
     try {
-      const room = await createRoomAs(nick, { size, durationS: minutes * 60, targetLines: target, clipPolicy: clips });
+      const room = await createRoomAs(nick, { size, durationS: minutes * 60, targetLines: target, clipPolicy: clips, winMode });
       navigate(`/r/${room.code}`);
     } catch (err) {
       setError(errorMessage(err));
@@ -106,15 +107,24 @@ export function Home() {
               </select>
             </label>
             <label className="campo">
-              <span className="rotulo">linhas para vencer</span>
-              <input
-                type="number"
-                min={1}
-                max={maxLines(size)}
-                value={target}
-                onChange={(e) => setTarget(Math.max(1, Math.min(maxLines(size), Number(e.target.value) || 1)))}
-              />
+              <span className="rotulo">como vencer</span>
+              <select value={winMode} onChange={(e) => setWinMode(e.target.value as WinMode)}>
+                <option value="lines">completar linhas</option>
+                <option value="full">cartela cheia</option>
+              </select>
             </label>
+            {winMode === "lines" && (
+              <label className="campo">
+                <span className="rotulo">linhas para vencer</span>
+                <input
+                  type="number"
+                  min={1}
+                  max={maxLines(size)}
+                  value={target}
+                  onChange={(e) => setTarget(Math.max(1, Math.min(maxLines(size), Number(e.target.value) || 1)))}
+                />
+              </label>
+            )}
             <label className="campo">
               <span className="rotulo">clips</span>
               <select value={clips} onChange={(e) => setClips(e.target.value as "optional" | "off")}>

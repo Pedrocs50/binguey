@@ -23,10 +23,10 @@
 
 ## Como funciona o bingo
 
-- **O tabuleiro tem objetivos que servem para qualquer jogo**, como "derrotar um chefe", "cair de um lugar alto", "rir alto de alguma coisa" ou "jogar um jogo que você nunca tinha aberto". Cada um joga o jogo que quiser e pode trocar de jogo no meio da partida.
+- **O tabuleiro tem objetivos que servem para qualquer jogo**, como "derrotar um chefe sem usar cura", "concluir uma missão difícil", "vencer uma partida online" ou "concluir uma fase em um jogo 2D". Cada um joga o jogo que quiser e pode trocar de jogo no meio da partida.
 - Quando você cumpre um objetivo, **toque na casa**. Ela fica marcada com o seu nome para todos. **Quem marca primeiro fica com a casa.**
-- A sala **vence ao completar o número de linhas combinado** (linha, coluna ou diagonal) antes de o tempo acabar. Dá para jogar em tabuleiros 3×3, 4×4 e 5×5.
-- O anfitrião pode **escrever objetivos próprios** e incluir objetivos extras de **67 jogos** (Minecraft, Elden Ring, CS2, Valorant, Hollow Knight, Baldur's Gate 3 e muitos outros). São mais de **800 objetivos** no total.
+- Ao criar a sala, o anfitrião escolhe **como vencer**: **completar um número de linhas** (linha, coluna ou diagonal) ou **cartela cheia** (todas as casas marcadas). A sala precisa vencer antes de o tempo acabar. Dá para jogar em tabuleiros 3×3, 4×4 e 5×5.
+- O anfitrião pode **escrever objetivos próprios** e incluir objetivos extras de **67 jogos** (Minecraft, Elden Ring, CS2, Valorant, Hollow Knight, Baldur's Gate 3 e muitos outros). São mais de **600 objetivos** no total, todos de conquista: concluir missões e fases, derrotar chefes, vencer partidas.
 - O anfitrião pode **encerrar a partida** a qualquer momento.
 
 ![No celular](docs/img/04-celular.png)

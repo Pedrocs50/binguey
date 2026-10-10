@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { BOARD_SIZES, completedLines, isWin, lineIndices, maxLines } from "./board";
+import { BOARD_SIZES, completedLines, isFull, isWin, lineIndices, maxLines } from "./board";
 
 describe("board", () => {
   it("tem 8, 10 e 12 linhas para 3x3, 4x4 e 5x5", () => {
@@ -29,5 +29,12 @@ describe("board", () => {
     expect(isWin(3, marked, 8)).toBe(true);
     expect(isWin(3, [0, 1, 2], 2)).toBe(false);
     expect(isWin(3, [0, 1, 2, 3, 4, 5], 2)).toBe(true);
+  });
+
+  it("cartela cheia só com todas as casas marcadas", () => {
+    expect(isFull(3, [0, 1, 2, 3, 4, 5, 6, 7])).toBe(false);
+    expect(isFull(3, [0, 1, 2, 3, 4, 5, 6, 7, 8])).toBe(true);
+    expect(isFull(3, [0, 0, 1, 2, 3, 4, 5, 6, 7])).toBe(false); // repetidas não contam
+    expect(isFull(4, Array.from({ length: 16 }, (_, i) => i))).toBe(true);
   });
 });

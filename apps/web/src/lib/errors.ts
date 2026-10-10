@@ -14,6 +14,7 @@ const MESSAGES: Record<RpcError, string> = {
   invalid_size: "Tamanho inválido.",
   invalid_duration: "Duração inválida.",
   invalid_target_lines: "Número de linhas inválido para esse tabuleiro.",
+  invalid_win_mode: "Modo de vitória inválido.",
   invalid_clip_policy: "Política de clips inválida.",
   invalid_path: "Caminho de clip inválido.",
   not_enough_goals: "Faltam objetivos para preencher o tabuleiro. Escreva mais alguns ou escolha mais jogos.",

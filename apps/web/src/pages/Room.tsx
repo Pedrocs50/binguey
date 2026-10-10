@@ -111,8 +111,11 @@ function Resumo({ data }: { data: RoomData }) {
   const clip = { off: "desligados", optional: "opcionais", required: "obrigatórios" }[room.clip_policy];
   return (
     <p className="rotulo">
-      {room.size}×{room.size} · {Math.round(room.duration_s / 60)} min · {room.target_lines}{" "}
-      {room.target_lines === 1 ? "linha" : "linhas"} para vencer · clips {clip}
+      {room.size}×{room.size} · {Math.round(room.duration_s / 60)} min ·{" "}
+      {room.win_mode === "full"
+        ? "vence com a cartela cheia"
+        : `${room.target_lines} ${room.target_lines === 1 ? "linha" : "linhas"} para vencer`}{" "}
+      · clips {clip}
     </p>
   );
 }
@@ -270,7 +273,7 @@ function Play({
   return (
     <>
       <p className="progresso mono">
-        linhas: {lines}/{room.target_lines} · casas marcadas: {marks.length}/{cells.length}
+        {room.win_mode === "full" ? "cartela cheia" : `linhas: ${lines}/${room.target_lines}`} · casas marcadas: {marks.length}/{cells.length}
       </p>
       <Board size={room.size} cells={cells} marks={marks} nicknames={nicknames} canMark onMark={onMark} />
       {isDesktop() && (
@@ -317,7 +320,9 @@ function Finished({ data, me }: { data: RoomData; me: string }) {
           <h2>tempo esgotado</h2>
         )}
         <p className="mono" style={{ margin: 0 }}>
-          {lines}/{room.target_lines} {room.target_lines === 1 ? "linha" : "linhas"} · {marks.length}/{cells.length} casas
+          {room.win_mode === "full"
+            ? `cartela ${marks.length}/${cells.length}`
+            : `${lines}/${room.target_lines} ${room.target_lines === 1 ? "linha" : "linhas"} · ${marks.length}/${cells.length} casas`}
         </p>
       </div>
 

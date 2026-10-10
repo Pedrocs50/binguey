@@ -26,3 +26,8 @@ export function completedLines(size: BoardSize, marked: Iterable<number>): numbe
 export function isWin(size: BoardSize, marked: Iterable<number>, targetLines: number): boolean {
   return completedLines(size, marked).length >= targetLines;
 }
+
+/** Cartela cheia: todas as casas do tabuleiro marcadas. */
+export function isFull(size: BoardSize, marked: Iterable<number>): boolean {
+  return new Set(marked).size >= size * size;
+}

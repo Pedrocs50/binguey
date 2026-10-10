@@ -1,4 +1,4 @@
-import { api, ensureSession, type ClipPolicy, type Room } from "@binguey/shared";
+import { api, ensureSession, type ClipPolicy, type Room, type WinMode } from "@binguey/shared";
 import { supabase } from "./supabase";
 import { rememberRoom, setNickname } from "./storage";
 
@@ -16,7 +16,7 @@ async function identify(nickname: string) {
 
 export async function createRoomAs(
   nickname: string,
-  opts: { size: 3 | 4 | 5; durationS: number; targetLines: number; clipPolicy: ClipPolicy },
+  opts: { size: 3 | 4 | 5; durationS: number; targetLines: number; clipPolicy: ClipPolicy; winMode?: WinMode },
 ): Promise<Room> {
   await identify(nickname);
   const room = await api.createRoom(supabase, opts);

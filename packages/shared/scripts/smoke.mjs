@@ -98,5 +98,17 @@ check("objetivo próprio do anfitrião entra no tabuleiro", mixed.data?.some((c)
 await A.rpc("end_room", { p_room: r3.id });
 await A.rpc("end_room", { p_room: r4.id });
 
+// --- cartela cheia (migration 0009)
+check("modo de vitória inválido é recusado", errOf(await A.rpc("create_room", { p_win_mode: "xyz" })).includes("invalid_win_mode"));
+const rf = (await A.rpc("create_room", { p_size: 3, p_duration_s: 300, p_target_lines: 1, p_clip_policy: "off", p_win_mode: "full" })).data;
+await B.rpc("join_room", { p_code: rf.code });
+await A.rpc("start_room", { p_room: rf.id });
+for (let i = 0; i < 8; i++) await (i % 2 ? B : A).rpc("mark_cell", { p_room: rf.id, p_idx: i });
+const eight = (await A.from("rooms").select("status, win_mode").eq("id", rf.id).single()).data;
+check("cartela cheia: 8 de 9 casas (já com 2 linhas) ainda não vence", eight?.win_mode === "full" && eight?.status === "running", JSON.stringify(eight));
+await A.rpc("mark_cell", { p_room: rf.id, p_idx: 8 });
+const nine = (await A.from("rooms").select("status, result").eq("id", rf.id).single()).data;
+check("cartela cheia: vence ao marcar a 9ª casa", nine?.status === "finished" && nine?.result === "won", JSON.stringify(nine));
+
 console.log(failed === 0 ? "\nTudo certo." : `\n${failed} falha(s).`);
 process.exit(failed === 0 ? 0 : 1);

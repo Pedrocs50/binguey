@@ -2,6 +2,8 @@ import type { BoardSize } from "./board";
 
 export type RoomStatus = "lobby" | "running" | "finished" | "expired";
 export type ClipPolicy = "off" | "optional" | "required";
+/** Como a sala vence: completar N linhas, ou preencher a cartela inteira. */
+export type WinMode = "lines" | "full";
 export type RoomResult = "won" | "timeout" | "ended";
 export type GoalKind = "boss" | "collect" | "npc" | "explore" | "combat" | "misc";
 
@@ -15,6 +17,7 @@ export interface Room {
   seed: number;
   duration_s: number;
   target_lines: number;
+  win_mode: WinMode;
   clip_policy: ClipPolicy;
   started_at: string | null;
   ends_at: string | null;
@@ -71,6 +74,7 @@ export const RPC_ERRORS = [
   "invalid_size",
   "invalid_duration",
   "invalid_target_lines",
+  "invalid_win_mode",
   "invalid_clip_policy",
   "invalid_path",
   "not_enough_goals",

@@ -1,5 +1,5 @@
 import { createClient, type SupabaseClient } from "@supabase/supabase-js";
-import { RPC_ERRORS, type Clip, type ClipPolicy, type Mark, type Room, type RpcError } from "./types";
+import { RPC_ERRORS, type Clip, type ClipPolicy, type Mark, type Room, type RpcError, type WinMode } from "./types";
 
 export type BingueyClient = SupabaseClient;
 
@@ -44,13 +44,15 @@ export const api = {
   setNickname: (c: BingueyClient, nickname: string) => rpc(c, "upsert_profile", { p_nickname: nickname }),
   createRoom: (
     c: BingueyClient,
-    o: { size?: 3 | 4 | 5; durationS?: number; targetLines?: number; clipPolicy?: ClipPolicy } = {},
+    o: { size?: 3 | 4 | 5; durationS?: number; targetLines?: number; clipPolicy?: ClipPolicy; winMode?: WinMode } = {},
   ) =>
     rpc<Room>(c, "create_room", {
       p_size: o.size ?? 4,
       p_duration_s: o.durationS ?? 3600,
       p_target_lines: o.targetLines ?? 2,
       p_clip_policy: o.clipPolicy ?? "optional",
+      // só envia quando não é o padrão: continua compatível com o banco antes da migration 0009
+      ...(o.winMode && o.winMode !== "lines" ? { p_win_mode: o.winMode } : {}),
     }),
   joinRoom: (c: BingueyClient, code: string) => rpc<Room>(c, "join_room", { p_code: code }),
   startRoom: (c: BingueyClient, room: string, customGoals: string[] = [], gameSlugs: string[] | null = null) =>
