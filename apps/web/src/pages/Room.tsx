@@ -2,6 +2,7 @@ import { useEffect, useMemo, useRef, useState } from "react";
 import { api, completedLines, inviteUrl } from "@binguey/shared";
 import { Board } from "../components/Board";
 import { ClipGallery } from "../components/ClipGallery";
+import { HighlightsPanel } from "../components/HighlightsPanel";
 import { Link } from "../components/Link";
 import { ObsPanel } from "../components/ObsPanel";
 import { Relogio } from "../components/Relogio";
@@ -323,6 +324,7 @@ function Finished({ data, me }: { data: RoomData; me: string }) {
       <Board size={room.size} cells={cells} marks={marks} nicknames={nicknames} canMark={false} onMark={() => {}} />
 
       <ClipGallery clips={clips} cells={cells} marks={marks} nicknames={nicknames} me={me} />
+      <HighlightsPanel source={{ room, cells, marks, clips, nicknames }} />
 
       <section className="secao">
         <h2>quem marcou</h2>

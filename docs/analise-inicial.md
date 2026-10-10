@@ -63,7 +63,8 @@ de OBS) está certa. Os pontos abaixo são o que eu corrigiria ou decidiria **an
 | `apps/web` | jogo completo: entrar por link, lobby, tabuleiro em tempo real, timer, vitória, encerrar partida, galeria de clips |
 | `apps/desktop` | app Tauri: OBS (abre sozinho, senha lida da config, perfil dedicado), envio de clips, deep link |
 | Teste ponta a ponta no app com OBS real (`apps/desktop/README.md`) | 8 verificações passando (clip visível em ~3,6 s) |
-| Não feito | vídeo final, limpeza automática no servidor, instalador/atualização/assinatura, publicação, estatísticas, testes com jogo real e com vários jogadores |
+| Vídeo final (`apps/desktop/src-tauri/src/video.rs`, `HighlightsPanel`) | E2E: 10 clips → vídeo em 28 s, sem preto; instalar o ffmpeg pelo winget (jogador sem ffmpeg) **não testado** |
+| Não feito | limpeza automática no servidor, instalador/atualização/assinatura, publicação, estatísticas, testes com jogo real e com vários jogadores |
 
 ## Spikes
 
@@ -82,6 +83,14 @@ Notas do S2:
 - O CSP do app **não** precisou de `unsafe-eval` nem de domínios externos para falar com o OBS.
 
 | **S1b** — perfil dedicado do OBS por WebSocket | **Passou** (10/10/2026): cria o perfil "Binguey" (saída 720p mantendo a proporção da tela, 30 fps, 3 Mbps, buffer de 20 s, pasta `Vídeos\Binguey`), reaproveita o encoder do perfil do jogador, recarrega o perfil para o OBS criar a saída do Replay Buffer e **devolve o perfil original** ao desativar, ao fechar o app e se algo falhar. Replays ficam guardados por padrão; "apagar depois de enviar" e "limpar agora" são opções do jogador e só atuam na pasta chamada `Binguey`. |
+
+| **S5** — envio de clips | **Passou** (10/10/2026): 10 clips reais (64,7 MB) no servidor em 25 s, enviados em paralelo às marcações (uma a cada 2,5 s). |
+| **S6** — montar 10 clips com ffmpeg | **Passou** (10/10/2026): vídeo de 180 s (1280×720, legendas, áudio AAC) montado em **28 s** com libx264, 31,6 MB; sem preto. O ffmpeg lê os clips direto pelas URLs assinadas (nada é baixado antes). Sem libx264, usa NVENC, QSV, AMF ou o encoder do Windows. |
+
+**Bug achado só olhando o vídeo (corrigido):** a captura de monitor criada pelo WebSocket nasce sem monitor
+escolhido (fonte 0×0): o vídeo final saía 100% preto e o teste não percebia. Agora o app escolhe o monitor
+principal (`ensureMonitor`), o teste confere que a fonte recebe imagem (1920×1080) e a montagem mede o
+percentual de preto (`blackdetect`) e avisa o jogador. Lição: testes de mídia precisam olhar o conteúdo.
 
 Pendências do S1:
 - Senha/porta do OBS: **resolvido**. O OBS guarda `server_enabled`, `server_port`, `server_password` e

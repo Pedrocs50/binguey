@@ -325,6 +325,7 @@ export class ObsClient {
     const existing = list2.find((i) => i.sourceName === want.name);
     if (existing) {
       await setEnabled(existing.sceneItemId, true);
+      if (want.kind === "monitor_capture") await this.ensureMonitor(want.name); // versões antigas criavam sem monitor
       return;
     }
 
@@ -335,6 +336,7 @@ export class ObsClient {
       inputSettings: want.kind === "game_capture" ? { capture_mode: "any_fullscreen" } : {},
       sceneItemEnabled: true,
     });
+    if (want.kind === "monitor_capture") await this.ensureMonitor(want.name);
     // Encaixa a captura na tela da cena (escala proporcional, sem cortar).
     const video = await this.mustOk("GetVideoSettings");
     await this.request("SetSceneItemTransform", {
@@ -350,6 +352,36 @@ export class ObsClient {
         boundsHeight: Number(video.data.baseHeight),
       },
     });
+  }
+
+  /**
+   * Uma captura de monitor criada pelo WebSocket nasce SEM monitor escolhido (fonte 0x0, vídeo preto).
+   * Escolhe o monitor principal; se o OBS não disser qual é, o primeiro da lista.
+   */
+  private async ensureMonitor(inputName: string): Promise<void> {
+    const current = await this.request("GetInputSettings", { inputName });
+    if (current.ok && (current.data.inputSettings as { monitor_id?: string } | undefined)?.monitor_id) return;
+    const items = await this.request("GetInputPropertiesListPropertyItems", { inputName, propertyName: "monitor_id" });
+    const list = (items.data.propertyItems ?? []) as { itemName: string; itemValue: string }[];
+    if (!items.ok || list.length === 0) throw new ObsError("save_failed", "o OBS não listou nenhum monitor para capturar");
+    const main = list.find((i) => /principal|primary/i.test(i.itemName)) ?? list[0]!;
+    await this.mustOk("SetInputSettings", { inputName, inputSettings: { monitor_id: main.itemValue }, overlay: true });
+  }
+
+  /** Tamanho da imagem que a fonte de captura ativa está recebendo (0x0 = sem imagem). */
+  async captureSize(): Promise<{ width: number; height: number }> {
+    try {
+      const items = await this.request("GetSceneItemList", { sceneName: COLLECTION });
+      const item = ((items.data.sceneItems ?? []) as { sourceName: string; sceneItemId: number; sceneItemEnabled?: boolean }[]).find(
+        (i) => i.sceneItemEnabled !== false && i.sourceName.startsWith("Binguey: "),
+      );
+      if (!item) return { width: 0, height: 0 };
+      const t = await this.request("GetSceneItemTransform", { sceneName: COLLECTION, sceneItemId: item.sceneItemId });
+      const tr = t.data.sceneItemTransform as { sourceWidth: number; sourceHeight: number };
+      return { width: tr.sourceWidth, height: tr.sourceHeight };
+    } catch {
+      return { width: 0, height: 0 };
+    }
   }
 
   /** Devolve a coleção de cenas que o jogador usava (se o Binguey a trocou). Melhor esforço. */

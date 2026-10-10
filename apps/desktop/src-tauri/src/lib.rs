@@ -1,3 +1,5 @@
+mod video;
+
 use std::{
     fs,
     io::Write,
@@ -292,6 +294,7 @@ fn handle_links(app: &AppHandle, urls: Vec<String>) {
 struct DevConfig {
     password: String,
     auto: bool,
+    video: bool,
 }
 
 /// Senha do OBS e modo automático vêm de variáveis de ambiente, somente em debug.
@@ -301,9 +304,10 @@ fn dev_config() -> DevConfig {
         DevConfig {
             password: std::env::var("OBS_PASSWORD").unwrap_or_default(),
             auto: std::env::var("BINGUEY_AUTOTEST").is_ok(),
+            video: std::env::var("BINGUEY_AUTOTEST_VIDEO").is_ok(),
         }
     } else {
-        DevConfig { password: String::new(), auto: false }
+        DevConfig { password: String::new(), auto: false, video: false }
     }
 }
 
@@ -357,6 +361,7 @@ pub fn run() {
         })
         .manage(RecordDir::default())
         .manage(PendingLink::default())
+        .manage(video::LastRender::default())
         .setup(move |app| {
             // Mini-tabuleiro: começa escondido; Ctrl+Shift+B alterna. Fechar (X) só esconde.
             if let Ok(overlay) = tauri::WebviewWindowBuilder::new(app, "overlay", tauri::WebviewUrl::App("overlay".into()))
@@ -399,6 +404,10 @@ pub fn run() {
             open_clips_dir,
             launch_obs,
             toggle_overlay,
+            video::find_ffmpeg,
+            video::install_ffmpeg,
+            video::render_highlights,
+            video::reveal_render,
             take_pending_link,
             dev_config,
             dev_report,

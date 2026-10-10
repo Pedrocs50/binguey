@@ -32,6 +32,15 @@ sala atual. Clicar numa casa ali envia a marcação à janela principal (evento 
 com o OBS e grava o clip. Fechar a janela (X) só a esconde; fechar a janela principal encerra o app.
 Funciona em jogos em janela ou janela sem bordas; em tela cheia exclusiva depende do jogo.
 
+## Vídeo final
+
+Na sala encerrada, "montar vídeo final" escolhe até 10 clips (os das linhas vencedoras primeiro, depois extras
+em rodízio entre os jogadores) e monta um MP4 1280×720 com legenda (objetivo + apelido) em Vídeos\Binguey.
+O ffmpeg roda como processo separado e lê os clips pelas URLs assinadas; a interface não passa argumentos
+nem caminhos (`video.rs` valida e monta o comando). Sem ffmpeg, o botão "instalar" usa o winget (Gyan.FFmpeg).
+Depois de montar, o app mede quanto do vídeo é preto e avisa se a captura do OBS não pegou imagem.
+Teste: `BINGUEY_AUTOTEST_VIDEO=1` junto de `BINGUEY_AUTOTEST=1` (10 marcações com clips reais + montagem).
+
 ## Como funciona um clip
 
 1. O jogador toca na casa → `mark_cell` (RPC) e, em paralelo, uma espera de 2 s (pós-roll).

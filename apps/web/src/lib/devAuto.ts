@@ -1,10 +1,11 @@
 // Teste ponta a ponta automático do fluxo de clips, SÓ no app de desktop em build de debug
 // e com BINGUEY_AUTOTEST=1 (ver apps/desktop/README.md). Em release `dev_config` devolve auto=false.
-import { api, ensureSession } from "@binguey/shared";
+import { api, ensureSession, type Cell, type Clip, type Mark } from "@binguey/shared";
 import { createRoomAs } from "./actions";
 import { getClipStatus, captureClip } from "./clips";
 import { invoke } from "./desktop";
 import { navigate } from "./router";
+import { renderHighlights } from "./video";
 import { obs } from "./obs";
 import { cleanLocalClips, connectObs, getObsState, localClipsInfo, readObsConfig } from "./obsStore";
 import { supabase } from "./supabase";
@@ -12,6 +13,7 @@ import { supabase } from "./supabase";
 interface DevConfig {
   password: string;
   auto: boolean;
+  video: boolean;
 }
 
 const sleep = (ms: number) => new Promise((r) => setTimeout(r, ms));
@@ -89,7 +91,11 @@ export async function maybeRunDevAuto(): Promise<void> {
     }
     report(`E2E.11 ${viaOverlay ? "PASS" : "FAIL"}  marcação enviada pelo mini-tabuleiro gerou marca e clip em ${Math.round(performance.now() - tOverlay)} ms`);
 
+    if (cfg.video) await videoTest(report, me);
+
     const setup = await obs.describeSetup();
+    const cap = await obs.captureSize();
+    report(`E2E.5b ${cap.width > 0 && cap.height > 0 ? "PASS" : "FAIL"}  a captura do monitor recebe imagem de verdade: ${cap.width}x${cap.height} (0x0 = preto)`);
     const profileOk = /coleção=Binguey/.test(setup) && /fontes=monitor_capture/.test(setup) && /perfil=Binguey/.test(setup) && /x720@/.test(setup) && /bitrate=3000/.test(setup) && /pasta=[^ ]*Binguey /i.test(setup);
     report(`E2E.5 ${profileOk ? "PASS" : "FAIL"}  perfil dedicado: ${setup}`);
     if (getObsState().profileNote) report(`  aviso: ${getObsState().profileNote}`);
@@ -133,4 +139,49 @@ async function captureOnLostMark(roomId: string, me: string): Promise<boolean> {
   await sleep(2500);
   const after = (await supabase.from("clips").select("id").eq("room_id", roomId)).data?.length ?? 0;
   return after === before;
+}
+
+/** S5 e S6: 10 marcações com clips reais, envio ao Storage e montagem do vídeo final com o ffmpeg. */
+async function videoTest(report: (line: string) => void, me: string): Promise<void> {
+  const room = await createRoomAs("AutoTester", { size: 4, durationS: 900, targetLines: 10, clipPolicy: "optional" });
+  await api.startRoom(supabase, room.id);
+  report(`E2E.12  sala ${room.code}: marcando 10 casas com clips reais...`);
+
+  const t0 = performance.now();
+  for (let i = 0; i < 10; i++) {
+    const mark = api.markCell(supabase, room.id, i).catch(() => null);
+    void captureClip({ roomId: room.id, userId: me, mark });
+    await sleep(2500);
+  }
+  let clips: Clip[] = [];
+  while (clips.length < 10 && performance.now() - t0 < 300000) {
+    clips = ((await supabase.from("clips").select("*").eq("room_id", room.id)).data ?? []) as Clip[];
+    if (clips.length < 10) await sleep(1000);
+  }
+  const upSeconds = Math.round((performance.now() - t0) / 1000);
+  const totalMb = clips.reduce((n, c) => n + (c.bytes ?? 0), 0) / 1024 / 1024;
+  report(`E2E.12 ${clips.length === 10 ? "PASS" : "FAIL"}  ${clips.length}/10 clips no servidor em ${upSeconds} s (${totalMb.toFixed(1)} MB no total; S5)`);
+  if (clips.length === 0) return;
+
+  const [cells, marks] = await Promise.all([
+    supabase.from("cells").select("*").eq("room_id", room.id),
+    supabase.from("marks").select("*").eq("room_id", room.id),
+  ]);
+  const src = {
+    room: { code: room.code, size: room.size },
+    cells: (cells.data ?? []) as Cell[],
+    marks: (marks.data ?? []) as Mark[],
+    clips,
+    nicknames: { [me]: "AutoTester" },
+  };
+  let lastPct = 0;
+  const res = await renderHighlights(src, (p) => (lastPct = p), 10);
+  const expect = clips.reduce((n, c) => n + (c.duration_ms ?? 0), 0) / 1000;
+  report(
+    `E2E.13 ${res.seconds < 120 && res.duration_s > expect * 0.9 && res.black_ratio < 0.5 ? "PASS" : "FAIL"}  vídeo final de ${res.duration_s.toFixed(1)} s ` +
+      `(clips somam ${expect.toFixed(1)} s) montado em ${res.seconds.toFixed(1)} s com ${res.encoder}, ${(res.bytes / 1024 / 1024).toFixed(1)} MB (S6 < 120 s); ` +
+      `preto: ${(res.black_ratio * 100).toFixed(0)}% do vídeo; último progresso ${lastPct}%`,
+  );
+  report(`  arquivo: ${res.path}`);
+  await api.endRoom(supabase, room.id).catch(() => {});
 }
