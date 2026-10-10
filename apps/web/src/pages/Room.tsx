@@ -71,7 +71,21 @@ export function RoomPage({ code }: { code: string }) {
       )}
 
       {room.status === "lobby" && <Lobby data={data} me={me} />}
-      {room.status === "running" && <Play data={data} me={me} onMark={handleMark} />}
+      {room.status === "running" && (
+        <Play
+          data={data}
+          me={me}
+          onMark={handleMark}
+          onEnd={async () => {
+            if (!window.confirm("Encerrar a partida agora para todos?")) return;
+            try {
+              await api.endRoom(supabase, room.id);
+            } catch (e) {
+              setNotice(errorMessage(e));
+            }
+          }}
+        />
+      )}
       {(room.status === "finished" || room.status === "expired") && <Finished data={data} me={me} />}
     </>
   );
@@ -207,7 +221,17 @@ function Lobby({ data, me }: { data: RoomData; me: string }) {
   );
 }
 
-function Play({ data, me, onMark }: { data: RoomData; me: string; onMark: (idx: number) => void }) {
+function Play({
+  data,
+  me,
+  onMark,
+  onEnd,
+}: {
+  data: RoomData;
+  me: string;
+  onMark: (idx: number) => void;
+  onEnd: () => void;
+}) {
   const { room, cells, marks, nicknames, clips } = data;
   const lines = completedLines(room.size, marks.map((m) => m.cell_idx)).length;
   return (
@@ -218,6 +242,13 @@ function Play({ data, me, onMark }: { data: RoomData; me: string; onMark: (idx: 
       <Board size={room.size} cells={cells} marks={marks} nicknames={nicknames} canMark onMark={onMark} />
       <ObsPanel roomId={room.id} policy={room.clip_policy} compact />
       <ClipGallery clips={clips} cells={cells} marks={marks} nicknames={nicknames} me={me} />
+      {room.host_id === me && (
+        <p className="secao">
+          <button className="botao sec" type="button" onClick={onEnd}>
+            encerrar partida
+          </button>
+        </p>
+      )}
     </>
   );
 }
@@ -238,6 +269,8 @@ function Finished({ data, me }: { data: RoomData; me: string }) {
           <h2>sala expirada</h2>
         ) : room.result === "won" ? (
           <h2>vitória! 🎉</h2>
+        ) : room.result === "ended" ? (
+          <h2>partida encerrada pelo anfitrião</h2>
         ) : (
           <h2>tempo esgotado</h2>
         )}

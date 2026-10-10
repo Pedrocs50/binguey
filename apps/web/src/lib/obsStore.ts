@@ -13,9 +13,11 @@ export interface ObsState {
   version: string;
   /** Tamanho (MB) do clip de teste, depois de "conectar e testar". */
   testMb: number | null;
+  /** Aviso (não é erro): a cena grava o monitor inteiro em vez de só o jogo. */
+  captureWarning: string;
 }
 
-let state: ObsState = { phase: "off", message: "", version: "", testMb: null };
+let state: ObsState = { phase: "off", message: "", version: "", testMb: null, captureWarning: "" };
 const listeners = new Set<() => void>();
 
 function set(next: Partial<ObsState>) {
@@ -56,7 +58,11 @@ export async function connectObs(password: string, opts: { test?: boolean; roomI
       testMb = bytes.byteLength / 1024 / 1024;
     }
     setObsPassword(password);
-    set({ phase: "ready", message: "", version: obs.obsVersion, testMb: testMb ?? state.testMb });
+    const kinds = await obs.activeCaptureKinds();
+    const captureWarning = kinds.includes("monitor_capture")
+      ? "A cena do OBS grava o monitor inteiro: notificações, Discord e outras janelas aparecem nos clips. Para jogos, prefira “Captura de Jogo” (Fontes → + → Captura de Jogo)."
+      : "";
+    set({ phase: "ready", message: "", version: obs.obsVersion, testMb: testMb ?? state.testMb, captureWarning });
     if (opts.roomId) await announceClips(opts.roomId, true);
   } catch (e) {
     set({ phase: "error", message: describe(e) });
@@ -66,7 +72,7 @@ export async function connectObs(password: string, opts: { test?: boolean; roomI
 
 export function disconnectObs(roomId?: string) {
   obs.close();
-  set({ phase: "off", message: "", testMb: null });
+  set({ phase: "off", message: "", testMb: null, captureWarning: "" });
   if (roomId) void announceClips(roomId, false);
 }
 

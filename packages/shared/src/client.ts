@@ -56,6 +56,8 @@ export const api = {
   startRoom: (c: BingueyClient, room: string, customGoals: string[] = [], gameSlugs: string[] | null = null) =>
     rpc<Room>(c, "start_room", { p_room: room, p_custom_goals: customGoals, p_game_slugs: gameSlugs }),
   markCell: (c: BingueyClient, room: string, idx: number) => rpc<Mark>(c, "mark_cell", { p_room: room, p_idx: idx }),
+  /** Só o anfitrião, só com a partida em andamento. */
+  endRoom: (c: BingueyClient, room: string) => rpc<Room>(c, "end_room", { p_room: room }),
   closeIfTimeout: (c: BingueyClient, room: string) => rpc<Room>(c, "close_if_timeout", { p_room: room }),
   attachClip: (
     c: BingueyClient,

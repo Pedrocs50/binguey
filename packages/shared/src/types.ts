@@ -2,7 +2,7 @@ import type { BoardSize } from "./board";
 
 export type RoomStatus = "lobby" | "running" | "finished" | "expired";
 export type ClipPolicy = "off" | "optional" | "required";
-export type RoomResult = "won" | "timeout";
+export type RoomResult = "won" | "timeout" | "ended";
 export type GoalKind = "boss" | "collect" | "npc" | "explore" | "combat" | "misc";
 
 export interface Room {

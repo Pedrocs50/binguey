@@ -172,6 +172,22 @@ export class ObsClient {
     }
   }
 
+  /**
+   * Tipos de fonte de vídeo ativos na cena atual (ex.: "game_capture", "monitor_capture").
+   * Melhor esforço: devolve [] se o OBS não responder.
+   */
+  async activeCaptureKinds(): Promise<string[]> {
+    try {
+      const scene = await this.request("GetCurrentProgramScene");
+      if (!scene.ok) return [];
+      const items = await this.request("GetSceneItemList", { sceneName: scene.data.sceneName });
+      const list = (items.data.sceneItems ?? []) as { inputKind?: string; sceneItemEnabled?: boolean }[];
+      return list.filter((i) => i.sceneItemEnabled !== false && i.inputKind).map((i) => i.inputKind as string);
+    } catch {
+      return [];
+    }
+  }
+
   /** Pede ao OBS para salvar o replay e devolve o caminho do arquivo. */
   async saveReplay(): Promise<string> {
     const attempt = async () => {

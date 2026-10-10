@@ -74,5 +74,15 @@ check("anon sem sessão não cria sala", !!(await anon.rpc("create_room", {})).e
 check("ping funciona para o keepalive", !(await anon.rpc("ping")).error);
 check("server_time funciona", !(await A.rpc("server_time")).error);
 
+// --- encerrar partida (migration 0006)
+const r2 = (await A.rpc("create_room", { p_size: 3, p_duration_s: 300, p_target_lines: 2, p_clip_policy: "off" })).data;
+await B.rpc("join_room", { p_code: r2.code });
+check("end_room: não dá para encerrar no lobby", errOf(await A.rpc("end_room", { p_room: r2.id })).includes("room_not_running"));
+await A.rpc("start_room", { p_room: r2.id });
+check("end_room: não anfitrião é recusado", errOf(await B.rpc("end_room", { p_room: r2.id })).includes("not_host"));
+const ended = await A.rpc("end_room", { p_room: r2.id });
+check("end_room: anfitrião encerra", ended.data?.status === "finished" && ended.data?.result === "ended", errOf(ended));
+check("end_room: não marca depois de encerrada", errOf(await B.rpc("mark_cell", { p_room: r2.id, p_idx: 0 })).includes("room_not_running"));
+
 console.log(failed === 0 ? "\nTudo certo." : `\n${failed} falha(s).`);
 process.exit(failed === 0 ? 0 : 1);

@@ -88,6 +88,7 @@ function Wizard({ roomId, compact }: { roomId: string; compact: boolean }) {
           {obs.testMb !== null && ` · clip de teste ok (${obs.testMb.toFixed(1)} MB)`}
         </p>
       )}
+      {ready && obs.captureWarning && <div className="aviso">{obs.captureWarning}</div>}
       {obs.phase === "error" && (
         <div className="aviso erro" role="alert">
           {obs.message}
